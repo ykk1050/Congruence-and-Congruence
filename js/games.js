@@ -394,13 +394,41 @@
         const q = el('div', { class: 'q' });
         const ansBox = el('div', { class: 'ans' });
         area.append(q, ansBox);
-        const typeL1 = R.pick(['point', 'side', 'angle']);
+        const typeL1 = R.pick(['point', 'side', 'angle', 'point', 'side', 'angle', 'count']);
         const type = api.level === 1 ? typeL1 : api.level === 2 ? R.pick(['len', 'ang', 'len', 'ang']) : (tri ? R.pick(['perim', 'sum', 'len', 'ang']) : R.pick(['len', 'ang']));
         // 질문 대상: A 또는 B
         const askOnB = R.chance(0.5);
         const i = R.int(0, n - 1);
         const L1 = askOnB ? LB : LA, L2 = askOnB ? LA : LB;
         const P1 = askOnB ? B : A, P2 = askOnB ? A : B;
+        if (type === 'count') {
+          // 합동인 두 도형에서 대응점·대응변·대응각은 각각 몇 쌍? (지도서: 꼭짓점·변·각의 수와 같다)
+          const what = R.pick(['점', '변', '각']);
+          const shape = n === 3 ? '삼각형' : '사각형';
+          q.innerHTML = `두 ${shape}은 서로 합동이에요. <b>대응${what}</b>은 모두 몇 쌍일까요?`;
+          const traps = {
+            [2 * n]: `${2 * n}은 두 도형의 ${what === '점' ? '꼭짓점' : what}을 모두 센 수예요. 대응${what}은 두 도형에서 하나씩 짝을 지은 <b>쌍</b>의 수예요.`,
+            1: `포개었을 때 겹치는 ${what === '점' ? '꼭짓점' : what}은 하나만이 아니에요. 모두 짝을 지어 보세요.`,
+          };
+          if (n === 3) traps[4] = '삼각형의 꼭짓점·변·각은 각각 몇 개인지 세어 보세요.';
+          else traps[3] = '사각형의 꼭짓점·변·각은 각각 몇 개인지 세어 보세요.';
+          let done = false;
+          keypad(ansBox, (v, reset) => {
+            if (done) return;
+            if (v === n) {
+              done = true;
+              for (let k = 0; k < n; k++) {
+                const c = UI.PAIR_COLORS[k % UI.PAIR_COLORS.length];
+                if (what === '점') { st.circle(A[k], 0.28, { class: 'pair-ring', style: `stroke:${c}` }, 'top'); st.circle(B[k], 0.28, { class: 'pair-ring', style: `stroke:${c}` }, 'top'); }
+                else if (what === '변') { st.line(A[k], A[(k + 1) % n], { class: 'pair-side', style: `stroke:${c}` }, 'top'); st.line(B[k], B[(k + 1) % n], { class: 'pair-side', style: `stroke:${c}` }, 'top'); }
+                else { st.angleWedge(A, k, 0.6, { class: 'pair-wedge', style: `fill:${c}` }, 'top'); st.angleWedge(B, k, 0.6, { class: 'pair-wedge', style: `fill:${c}` }, 'top'); }
+              }
+              api.correct(`${shape}의 ${what === '점' ? '꼭짓점' : what}이 ${n}개라서 대응${what}도 ${n}쌍이에요!`);
+            } else { reset(); api.wrong(traps[v] || `${v}쌍이 아니에요. 같은 색끼리 짝을 짓듯 겹치는 ${what === '점' ? '꼭짓점' : what}을 하나씩 짝지어 세어 보세요.`); }
+          }, '쌍');
+          api.onReveal(() => { done = true; api.giveUp(`정답: <b>${n}쌍</b> — ${shape}의 ${what === '점' ? '꼭짓점' : what}의 수와 같아요.`); });
+          return;
+        }
         if (type === 'point' || type === 'side' || type === 'angle') {
           const name = type === 'point' ? '점 ' + L1[i] : type === 'side' ? '변 ' + sideName(L1, i) : '각 ' + angName(L1, i);
           const correct = type === 'point' ? '점 ' + L2[i] : type === 'side' ? sideName(L2, i) : angName(L2, i);
@@ -493,12 +521,12 @@
      눈으로 보아 대칭인지 애매한 도형은 넣지 않는다.
      ========================================================= */
   function gameWindow(root) {
-    const SYM1 = ['정사각형', '직사각형', '이등변삼각형', '연모양', '하트', '집모양', '등변사다리꼴', '화살표'];
+    const SYM1 = ['정사각형', '직사각형', '이등변삼각형', '연모양', '하트', '집모양', '등변사다리꼴', '화살표', '나비', '나뭇잎', '도토리'];
     const NON1 = ['평행사변형', '직각삼각형', 'L모양'];
-    const SYM2 = ['마름모', '정삼각형', '직각이등변삼각형', '정오각형', '정육각형', '양쪽화살표', '오목사각형', '원'];
-    const NON2 = ['평행사변형', '부등변삼각형', '직각사다리꼴', 'Z모양'];
-    const SYM3 = ['십자', '별', '정팔각형', '정육각형', '정오각형', '마름모', '원', '직사각형'];
-    const NON3 = ['Z모양', '바람개비', '번개', '부등변삼각형', 'L모양'];
+    const SYM2 = ['마름모', '정삼각형', '직각이등변삼각형', '정오각형', '정육각형', '양쪽화살표', '오목사각형', '원', 'T펜토미노', 'U펜토미노', '나비'];
+    const NON2 = ['평행사변형', '부등변삼각형', '직각사다리꼴', 'Z모양', 'L펜토미노', 'P펜토미노'];
+    const SYM3 = ['십자', '별', '정팔각형', '정육각형', '정오각형', '마름모', '원', '직사각형', 'V펜토미노', 'W펜토미노'];
+    const NON3 = ['Z모양', '바람개비', '번개', '부등변삼각형', 'L모양', 'Z펜토미노', 'F펜토미노', 'N펜토미노'];
     const recent = [];
     GameShell(root, {
       id: 'g4', emoji: '✨', title: '거울 마술 전시실',
@@ -571,11 +599,28 @@
     // 대칭축/중심 위에 있지 않은 꼭짓점 중 하나
     const cands = whole.map((_, i) => i).filter(i => corr(i) !== i);
     const i = R.pick(cands), j = corr(i);
-    const types = isLine ? ['side', 'angle', 'dist', 'perp'] : ['side', 'angle', 'half', 'whole'];
+    const types = isLine ? ['side', 'angle', 'dist', 'perp', 'claim', 'perim'] : ['side', 'angle', 'half', 'whole', 'claim', 'perim'];
     const type = R.pick(types);
     let answer, unit = 'cm';
     const traps = {};
-    if (type === 'side') {
+    if (type === 'claim') return claimRound();
+    if (type === 'perim') {
+      // 둘레 구하기: 대응변끼리는 한 번만 길이를 알려 준다 (지도서: 대응변의 길이가 같음을 이용)
+      const sideCorr = (s) => { const a = corr(s), b = corr((s + 1) % n); return b === (a + 1) % n ? a : b; };
+      const shown = new Set(), lens = new Array(n);
+      let shownSum = 0;
+      const real = Poly.sides(P), kk = R.pick([1, 1.5, 2]);
+      for (let s = 0; s < n; s++) {
+        if (lens[s] != null) continue;
+        const v = Math.max(1, Math.round(real[s] * kk)), c = sideCorr(s);
+        lens[s] = v; lens[c] = v; shown.add(s); shownSum += v;
+      }
+      shown.forEach(s => sideLabel(s, lens[s] + ' cm'));
+      answer = lens.reduce((a, b) => a + b, 0);
+      q.innerHTML = `${isLine ? '선대칭도형' : '점대칭도형'}의 <b>둘레</b>는 몇 cm일까요? <span class="muted">(길이가 쓰여 있지 않은 변도 있어요)</span>`;
+      if (shownSum !== answer) traps[shownSum] = `${shownSum} cm는 <b>보이는 길이만</b> 더한 값이에요. 길이가 쓰여 있지 않은 변은 어느 변과 대응변인지 찾아 그 길이도 더해요.`;
+      if (2 * shownSum !== answer) traps[2 * shownSum] = '보이는 길이를 모두 두 번씩 더했어요. 대칭축을 가로지르는 변은 대응변이 자기 자신이라서 한 번만 더해요.';
+    } else if (type === 'side') {
       // 변 i(i→i+1)의 대응변: corr(i)–corr(i+1)
       const i2 = (i + 1) % n, j2 = corr(i2);
       const v = R.int(3, 15);
@@ -638,11 +683,77 @@
           side: '대응변의 길이는 같아요. 구하려는 변의 대응변을 찾아보세요.', angle: '대응각의 크기는 같아요.',
           dist: '대응점에서 대칭축까지의 거리는 같아요.', perp: '대응점끼리 이은 선분은 대칭축과 수직으로 만나요.',
           half: '대칭의 중심은 대응점끼리 이은 선분을 똑같이 둘로 나눠요.', whole: '대칭의 중심까지의 거리가 같은 두 선분을 더해요.',
+          perim: '변마다 대응변을 찾아 길이를 채운 다음 모든 변의 길이를 더해요.',
         }[type];
         api.wrong(traps[v] || `${v}${unit === 'cm' ? ' cm' : '°'}는 아니에요. ${hint}`);
       }
     }, unit);
     api.onReveal(() => { done = true; api.giveUp(`정답: <b>${answer}${unit === 'cm' ? ' cm' : '°'}</b>`); });
+
+    /** 잘못 말한 친구를 찾고 옳게 고치기 (지도서: 성질을 말로 설명하기) */
+    function claimRound() {
+      const others = whole.map((_, k) => k).filter(k => k !== i && k !== j);
+      const [k1, k2] = R.shuffle(others);
+      const O = extra[0];
+      const aI = angName(i), aJ = L[corr((i - 1 + n) % n)] + L[j] + L[corr((i + 1) % n)];
+      const pool = [
+        { t: `점 ${L[i]}의 대응점은 점 ${L[j]}이에요.`, fs: [`점 ${L[i]}의 대응점은 점 ${L[k1]}이에요.`, `점 ${L[i]}의 대응점은 점 ${L[k2]}이에요.`],
+          why: isLine ? '대칭축으로 접었을 때 겹치는 점이 대응점이에요.' : `점 ${O}을 중심으로 180° 돌렸을 때 겹치는 점이 대응점이에요.` },
+        { t: `각 ${aI}과 각 ${aJ}의 크기는 같아요.`, fs: [`각 ${aI}이 각 ${aJ}보다 커요.`, `각 ${aI}이 각 ${aJ}보다 작아요.`],
+          why: '두 각은 대응각이라서 크기가 같아요.' },
+      ];
+      if (isLine) {
+        pool.push(
+          { t: `선분 ${L[i]}${L[j]}은 대칭축과 수직으로 만나요.`, fs: [`선분 ${L[i]}${L[j]}은 대칭축과 비스듬히 만나요.`, `선분 ${L[i]}${L[j]}은 대칭축과 평행해요.`],
+            why: '대응점끼리 이은 선분은 대칭축과 수직으로 만나요.' },
+          { t: `점 ${L[i]}과 점 ${L[j]}에서 대칭축까지의 거리는 같아요.`, fs: [`점 ${L[i]}이 점 ${L[j]}보다 대칭축에서 더 멀어요.`, `점 ${L[i]}에서 대칭축까지의 거리는 점 ${L[j]}에서 대칭축까지의 거리의 2배예요.`],
+            why: '대응점에서 대칭축까지의 거리는 서로 같아요.' });
+      } else {
+        pool.push(
+          { t: `선분 ${L[i]}${L[j]}은 점 ${O}을 지나요.`, fs: [`선분 ${L[i]}${L[j]}은 점 ${O}을 지나지 않아요.`, `선분 ${L[i]}${L[j]}은 점 ${O}에서 끝나요.`],
+            why: '대응점끼리 이은 선분은 대칭의 중심을 지나요.' },
+          { t: `선분 ${L[i]}${O}과 선분 ${L[j]}${O}의 길이는 같아요.`, fs: [`선분 ${L[i]}${O}이 선분 ${L[j]}${O}보다 길어요.`, `선분 ${L[i]}${O}의 길이는 선분 ${L[i]}${L[j]}의 길이와 같아요.`],
+            why: '대칭의 중심은 대응점끼리 이은 선분을 똑같이 둘로 나눠요.' });
+      }
+      const names = R.shuffle(['다윤', '승현', '지우', '민준']);
+      const ya = (w) => ((w.charCodeAt(w.length - 1) - 0xAC00) % 28 ? w + '이' : w); // 다윤 → 다윤이
+      const bad = R.int(0, 3);
+      const said = R.shuffle(pool).map((c, k) => ({ ...c, who: names[k], wrong: k === bad, said: k === bad ? R.pick(c.fs) : c.t }));
+      q.innerHTML = `친구들이 이 ${isLine ? '선대칭도형' : `점대칭도형(대칭의 중심: 점 ${O})`}을 보고 말했어요. <b>잘못 말한 친구</b>를 골라요.`;
+      const list = el('div', { class: 'claims' });
+      ans.appendChild(list);
+      let stage = 1;
+      said.forEach(c => {
+        const b = el('button', { class: 'opt claim', type: 'button' }, el('b', {}, c.who), ' “' + c.said + '”');
+        b.onclick = () => {
+          if (stage !== 1) return;
+          if (c.wrong) { b.classList.add('wrong-pick'); fixStep(c); }
+          else { b.classList.add('wrong'); shake(b); api.wrong(`${ya(c.who)}의 말은 맞아요. ${c.why}`); }
+        };
+        list.appendChild(b);
+      });
+      function fixStep(c) {
+        stage = 2;
+        q.innerHTML = `맞아요, <b>${ya(c.who)}</b>가 잘못 말했어요. ${ya(c.who)}의 말을 <b>옳게 고친 것</b>을 골라요.`;
+        const opts = el('div', { class: 'opts col' });
+        ans.appendChild(opts);
+        const choices = R.shuffle([{ t: c.t, ok: true }].concat(c.fs.filter(f => f !== c.said).map(t => ({ t, ok: false })), [{ t: c.said, ok: false, same: true }]));
+        choices.forEach(o => {
+          const b = el('button', { class: 'opt', type: 'button' }, o.t);
+          b.onclick = () => {
+            if (stage !== 2) return;
+            if (o.ok) { stage = 3; b.classList.add('right'); api.correct(c.why); }
+            else { b.classList.add('wrong'); shake(b); api.wrong(o.same ? `그건 ${ya(c.who)}가 처음에 한 말 그대로예요.` : `이것도 틀린 말이에요. ${c.why}`); }
+          };
+          opts.appendChild(b);
+        });
+      }
+      api.onReveal(() => {
+        stage = 3;
+        const c = said[bad];
+        api.giveUp(`<b>${ya(c.who)}</b>가 잘못 말했어요. 옳게 고치면: “${c.t}” — ${c.why}`);
+      });
+    }
   }
 
   function completeRound(area, api, mode, sceneAdd) {
@@ -703,8 +814,10 @@
       mission: '점대칭도형인지 판단하고, <b>대칭의 중심</b>과 <b>대응점</b>을 찾아요.',
       rounds: 12, roundName: '작품',
       makeRound(area, api) {
-        const mode = api.level === 1 ? 'ox' : api.level === 2 ? R.pick(['ox', 'center']) : R.pick(['center', 'corr', 'corr']);
+        const mode = api.level === 1 ? R.pick(['ox', 'ox', 'predict']) : api.level === 2 ? R.pick(['ox', 'center', 'predict', 'why']) : R.pick(['center', 'corr', 'corr', 'why', 'predict']);
         if (mode === 'corr') return corrRound(area, api);
+        if (mode === 'predict') return predictRound(area, api);
+        if (mode === 'why') return whyRound(area, api);
         let it;
         const want = mode === 'center' ? 'point' : null;
         for (let t = 0; t < 200; t++) {
@@ -755,6 +868,82 @@
         void c;
       },
     });
+    const pickItem = (ok) => { for (let t = 0; t < 300; t++) { const it = R.pick(items); if (ok(it)) return it; } return R.pick(items); };
+    const figCls = (f) => 'shape ' + (f.kind === 'strokes' ? 'letter' : 'fill-a');
+    const figCenter = (f) => { const bb = Fig.bbox(f); return [bb.cx, bb.cy]; };
+    function mainStage(area, f) {
+      const st = new Stage(area, { x0: -5, y0: -4.4, w: 10, h: 8.8, cls: 'letter-stage' });
+      st.fig(f, { class: figCls(f) });
+      return st;
+    }
+    function spinShow(st, f, ps, cb) {
+      const center = figCenter(f);
+      const g = st.fig(f, { class: 'shape ghost-rot' }, 'over');
+      const same90 = Fig.equal(f, Fig.map(f, p => V.rot(p, center, 90)), 1e-3);
+      UI.spin180(st, g, center, { same90, same180: ps, done: () => { cb && cb(); setTimeout(() => g.remove(), 1500); } });
+    }
+    /** 180° 돌린 모양 예상하기 (지도서: 돌리기 전에 먼저 예상해 보게 한다) */
+    function predictRound(area, api) {
+      const it = pickItem(x => x.fig.kind !== 'circle' && !Fig.isPointSym(x.fig));
+      const f = it.fig, c = figCenter(f);
+      const rot = (d) => Fig.map(f, p => V.rot(p, c, d));
+      const flip = (dir) => Fig.map(f, p => V.reflect(p, c, V.add(c, dir)));
+      const right = { f: rot(180), ok: true };
+      const cands = [
+        { f: rot(90), why: '그건 <b>90°</b>만 돌린 모양이에요. 한 번 더 90° 돌려야 180°예요.' },
+        { f: rot(270), why: '그건 반대쪽으로 <b>90°</b>만 돌린 모양이에요.' },
+        { f: flip([0, 1]), why: '그건 왼쪽과 오른쪽을 <b>뒤집은</b> 모양이에요. 돌리기와 뒤집기는 달라요.' },
+        { f: flip([1, 0]), why: '그건 위와 아래를 <b>뒤집은</b> 모양이에요. 돌리기와 뒤집기는 달라요.' },
+        { f, why: '그건 돌리기 전 처음 모양 그대로예요.' },
+      ];
+      const opts = [right];
+      R.shuffle(cands).forEach(o => { if (opts.length < 4 && !opts.some(x => Fig.equal(x.f, o.f, 1e-3))) opts.push(o); });
+      const q = el('div', { class: 'q', html: `빨간 점을 중심으로 이 ${it.kind}${it.kind === '도형' ? '을' : '를'} <b>180°</b> 돌리면 어떤 모양이 될까요? 머릿속으로 돌려 보고 골라요.` });
+      area.appendChild(q);
+      const st = mainStage(area, f);
+      st.circle(c, 0.14, { class: 'center-dot' }, 'ui');
+      const grid = el('div', { class: 'thumbs' });
+      area.appendChild(grid);
+      let done = false;
+      R.shuffle(opts).forEach(o => {
+        const b = el('button', { class: 'thumb', type: 'button', 'aria-label': '보기' });
+        const ts = new Stage(b, { x0: -5, y0: -4.4, w: 10, h: 8.8, cls: 'thumb-stage' });
+        ts.fig(o.f, { class: figCls(o.f) });
+        b.onclick = () => {
+          if (done) return;
+          if (o.ok) { done = true; b.classList.add('right'); spinShow(st, f, false, () => api.correct('예상한 모양과 똑같이 돌아갔어요!')); }
+          else { b.classList.add('wrong'); shake(b); api.wrong(o.why); }
+        };
+        grid.appendChild(b);
+      });
+      api.onReveal(() => { done = true; spinShow(st, f, false, () => api.giveUp('흐린 모양이 180° 돌린 모양이에요.')); });
+    }
+    /** 점대칭도형이 아닌 이유 고르기 (지도서 오개념: 가운데 점, 선대칭과 혼동, 90° 돌리기) */
+    function whyRound(area, api) {
+      const it = pickItem(x => x.fig.kind !== 'circle' && !Fig.isPointSym(x.fig) && (Fig.axisCount(x.fig) > 0 || R.chance(0.4)));
+      const f = it.fig, lineSym = Fig.axisCount(f) > 0;
+      area.appendChild(el('div', { class: 'q', html: `이 ${it.kind}${it.kind === '도형' ? '은' : '는'} <b>점대칭도형이 아니에요</b>. 그 까닭을 바르게 말한 것을 골라요.` }));
+      const st = mainStage(area, f);
+      const opts = [
+        { t: '어떤 점을 중심으로 180° 돌려도 처음 모양과 완전히 겹치지 않아요.', ok: true },
+        { t: '가운데에 점이 찍혀 있지 않아요.', why: '점이 찍혀 있는지로 정하지 않아요. 가운데에 점이 있어도 180° 돌렸을 때 겹치지 않으면 점대칭도형이 아니에요.' },
+        { t: '선대칭도형이 아니에요.', why: lineSym ? '이 모양은 대칭축이 있는 <b>선대칭도형</b>이에요. 선대칭도형인지와 점대칭도형인지는 따로 생각해요.' : '선대칭도형인지와 점대칭도형인지는 따로 생각해요. 선대칭도형이 아니어도 점대칭도형일 수 있어요.' },
+        { t: '90° 돌렸을 때 처음 모양과 겹치지 않아요.', why: '점대칭도형은 <b>180°</b> 돌렸을 때 겹치는지 보아요. 90° 돌려서 겹치지 않아도 점대칭도형일 수 있어요(평행사변형처럼).' },
+      ];
+      const box = el('div', { class: 'opts col' });
+      area.appendChild(box);
+      let done = false;
+      R.shuffle(opts).forEach(o => {
+        const b = el('button', { class: 'opt', type: 'button' }, o.t);
+        b.onclick = () => {
+          if (done) return;
+          if (o.ok) { done = true; b.classList.add('right'); spinShow(st, f, false, () => api.correct('180° 돌려서 겹치는지가 점대칭도형을 정하는 기준이에요!')); }
+          else { b.classList.add('wrong'); shake(b); api.wrong(o.why); }
+        };
+        box.appendChild(b);
+      });
+      api.onReveal(() => { done = true; spinShow(st, f, false, () => api.giveUp('점대칭도형인지는 <b>180° 돌렸을 때 처음 모양과 완전히 겹치는지</b>로 정해요.')); });
+    }
     function corrRound(area, api) {
       const nm = R.pick(['평행사변형', 'Z모양', '육각평행', '번개', '바람개비', '정육각형', '직사각형', '마름모']);
       const f = Shapes.polyShape(nm, R.pick([0, 15, 30, 45, 90])).fig;

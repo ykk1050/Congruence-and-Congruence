@@ -545,3 +545,16 @@ b { font-weight: 700; }
 .sc-sign { stroke-width: 2px; vector-effect: non-scaling-stroke; }
 .sc-board-lbl { font-size: .62px; fill: #fff; }
 .spin-lbl { font-size: .8em; fill: #c92a2a; paint-order: stroke; stroke: #fff; stroke-width: .25em; font-weight: 700; }
+
+/* 성질 퀴즈: 잘못 말한 친구 찾기 / 대응 쌍 세기 */
+.claims, .opts.col { display: flex; flex-direction: column; gap: 8px; margin-top: 8px; }
+.opt.claim { text-align: left; line-height: 1.45; }
+.opt.claim b { color: var(--navy); margin-right: 6px; }
+.opt.wrong-pick { border-color: #e8590c; background: #fff4e6; }
+.pair-ring { fill: none; stroke-width: 4px; vector-effect: non-scaling-stroke; }
+.thumbs { display: grid; grid-template-columns: repeat(4, 1fr); gap: 10px; margin-top: 10px; }
+.thumb { background: var(--paper); border: 3px solid var(--line); border-radius: 14px; padding: 4px; cursor: pointer; }
+.thumb svg { width: 100%; height: auto; display: block; pointer-events: none; }
+.thumb.right { border-color: var(--good); background: #ebfbee; }
+.thumb.wrong { border-color: #e8590c; opacity: .6; }
+@media (max-width: 600px) { .thumbs { grid-template-columns: repeat(2, 1fr); } }

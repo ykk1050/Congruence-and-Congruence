@@ -1,5 +1,5 @@
 /* =========================================================
-   app.js — 화면 이동(라우터), 홈·차시·활동·게임·교사 안내 화면
+   app.js — 화면 이동(라우터), 홈·차시·활동·게임 화면
    ========================================================= */
 (function () {
   'use strict';
@@ -17,7 +17,7 @@
   const stars = (id) => { const r = Store.get('game:' + id, null); return r ? '⭐'.repeat(r.stars) + '☆'.repeat(3 - r.stars) : '☆☆☆'; };
   const doneAct = (id) => !!Store.get('act:' + id, false);
   const appActs = (L) => L.acts.filter(a => a.type === 'app');
-  /** 배우기 활동을 모두 마쳐야 익히기 게임이 열린다 (선생님 안내에서 모두 열기 가능) */
+  /** 배우기 활동을 모두 마쳐야 익히기 게임이 열린다 (주소 #/open 으로 모두 열기 가능) */
   const teacherOpen = () => !!Store.get('unlockAll', false);
   const gameOpen = (L) => teacherOpen() || appActs(L).every(a => doneAct(a.id));
   const leftActs = (L) => appActs(L).filter(a => !doneAct(a.id));

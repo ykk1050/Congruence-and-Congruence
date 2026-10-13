@@ -333,7 +333,7 @@
     let t = document.getElementById('toast');
     if (!t) { t = el('div', { id: 'toast', role: 'status', 'aria-live': 'polite' }); document.body.appendChild(t); }
     t.className = 'toast show ' + type;
-    t.textContent = msg;
+    if (/<\/?b>/.test(msg)) t.innerHTML = msg; else t.textContent = msg; // 앱 안에서 만든 문구만 들어온다(굵게 표시 허용)
     clearTimeout(toastTimer);
     toastTimer = setTimeout(() => { t.className = 'toast ' + type; }, ms);
   }
