@@ -173,9 +173,10 @@
   }
 
   /* =========================================================
-     대응점·대응변·대응각 찾기
+     대응점·대응변·대응각 — 도형을 직접 옮겨 포개고, 답을 입력하기
      ========================================================= */
-  const PAIR_COLORS = ['#e8590c', '#1c7ed6', '#2f9e44', '#ae3ec9', '#f08c00', '#0c8599', '#d6336c'];
+  const PAIR_COLORS = ['#e8590c', '#1c7ed6', '#2f9e44', '#ae3ec9', '#f08c00', '#0c8599', '#d6336c', '#5c940d', '#1864ab'];
+  const mul2 = (A, B) => [[A[0][0] * B[0][0] + A[0][1] * B[1][0], A[0][0] * B[0][1] + A[0][1] * B[1][1]], [A[1][0] * B[0][0] + A[1][1] * B[1][0], A[1][0] * B[0][1] + A[1][1] * B[1][1]]];
 
   function Correspond(box, cfg) {
     const figs = cfg.figs;
@@ -183,13 +184,12 @@
     figs.forEach((f, fi) => f.pts.forEach((p, li) => { all.push(p); labelOf.push(f.labels[li]); figOf.push([fi, li]); }));
     const M = new Map();
     cfg.map.forEach(([a, b]) => { M.set(a, b); M.set(b, a); });
-    const gid = (fi, li) => { let s = 0; for (let i = 0; i < fi; i++) s += figs[i].pts.length; return s + li; };
-    const nb = (g, d) => { const [fi, li] = figOf[g], n = figs[fi].pts.length; return gid(fi, (li + d + n) % n); };
     const scale = cfg.scale || 1, unit = cfg.unit || 'cm';
+    const mv = cfg.drag ? cfg.drag.moving : -1, onto = cfg.drag ? cfg.drag.onto : -1;
+    const clsOf = (fi) => 'shape ' + (figs[fi].cls || (fi ? 'fill-b' : 'fill-a'));
 
     const stage = new Stage(box, cfg.view);
-    stage.svg.classList.add('tappable');
-    figs.forEach((f, fi) => stage.poly(f.pts, { class: 'shape ' + (f.cls || (fi ? 'fill-b' : 'fill-a')) }));
+    figs.forEach((f, fi) => { if (fi !== mv) stage.poly(f.pts, { class: clsOf(fi) }); });
     if (cfg.axis) {
       stage.fullLine(cfg.axis.a, cfg.axis.b, { class: 'axis' }, 'help', 0.3);
       if (cfg.axis.labels) {
@@ -206,72 +206,150 @@
       stage.circle(cfg.center.p, 0.12, { class: 'center-dot' }, 'ui');
       if (cfg.center.label) stage.text(V.add(cfg.center.p, [0.4, 0.35]), cfg.center.label, { class: 'vlabel center-lbl' });
     }
-    figs.forEach(f => stage.vertexLabels(f.pts, f.labels, { off: 0.5 }));
-    if (cfg.extra) cfg.extra(stage);
-
-    const ctrl = el('div', { class: 'controls' });
-    const prompt = el('div', { class: 'cprompt' });
-    const fb = el('div', { class: 'fb' });
-    const log = el('div', { class: 'clog' });
-    box.append(prompt, ctrl, fb, log);
-
-    let k = 0, wrong = 0, totalWrong = 0, ghost = null, busy = false;
-    const pv = (g) => all[g];
-    const figPts = (g) => figs[figOf[g][0]].pts;
-    const nameP = (g) => '점 ' + labelOf[g];
-    const nameS = (a, b) => '변 ' + labelOf[a] + labelOf[b];
-    const nameA = (p, v, n) => '각 ' + labelOf[p] + labelOf[v] + labelOf[n];
-    const sideLen = (a, b) => fmt(V.dist(pv(a), pv(b)) * scale, 1) + ' ' + unit;
-    // 측정값은 지워지지 않는 층에
+    figs.forEach((f, fi) => { if (fi !== mv) stage.vertexLabels(f.pts, f.labels); });
     stage.layers['top-keep'] = sv('g', { class: 'layer-keep' });
     stage.svg.insertBefore(stage.layers['top-keep'], stage.layers.top);
-    const angDeg = (g) => fmt(Poly.angleAt(figPts(g), figOf[g][1]), 0) + '°';
 
-    function cur() { return cfg.prompts[k]; }
-    function promptText(p) {
-      const ph = cfg.phrase || 'corr';
-      if (p.text) return p.text;
-      if (p.type === 'point') return ph === 'overlap' ? `포개었을 때 <b>${nameP(p.given[0])}</b>과 겹치는 꼭짓점을 눌러 보세요.` : `<b>${nameP(p.given[0])}</b>의 대응점을 찾아 눌러 보세요.`;
-      if (p.type === 'side') return ph === 'overlap' ? `포개었을 때 <b>${nameS(p.given[0], p.given[1])}</b>과 겹치는 변을 눌러 보세요.` : `<b>${nameS(p.given[0], p.given[1])}</b>의 대응변을 찾아 눌러 보세요.`;
-      return ph === 'overlap' ? `포개었을 때 <b>${nameA(...p.given)}</b>과 겹치는 각을 눌러 보세요. (꼭짓점 안쪽을 눌러요)` : `<b>${nameA(...p.given)}</b>의 대응각을 찾아 눌러 보세요. (꼭짓점 안쪽을 눌러요)`;
+    const ctrl = el('div', { class: 'controls' });
+    const fb = el('div', { class: 'fb' });
+    box.append(ctrl);
+
+    /* ----- 직접 옮겨 포개는 도형 ----- */
+    let S = null, dragOff = null;
+    if (mv >= 0) {
+      const base = figs[mv].pts, c0 = Poly.centroid(base);
+      const g = sv('g', { class: 'movable' });
+      stage.L('over').appendChild(g);
+      const poly = sv('polygon', { points: base.map(p => p.join(',')).join(' '), class: clsOf(mv) + ' drag-shape' });
+      g.appendChild(poly);
+      const hl = sv('g'); g.appendChild(hl);
+      const lblG = sv('g'); stage.L('ui').appendChild(lblG);
+      S = { base, c0, g, poly, hl, lblG, M: [[1, 0], [0, 1]], pos: c0.slice(), snapped: false };
+      stage.svg.classList.add('tappable');
     }
-    function showPrompt() {
-      stage.clearLayer('top');
-      const p = cur();
-      if (!p) return;
-      prompt.innerHTML = `<span class="badge">${k + 1} / ${cfg.prompts.length}</span> ` + promptText(p);
-      const color = PAIR_COLORS[k % PAIR_COLORS.length];
-      if (p.type === 'point') stage.circle(pv(p.given[0]), 0.32, { class: 'given-ring', style: `stroke:${color}` }, 'top');
-      if (p.type === 'side') stage.line(pv(p.given[0]), pv(p.given[1]), { class: 'given-side', style: `stroke:${color}` }, 'top');
-      if (p.type === 'angle') stage.angleWedge(figPts(p.given[1]), figOf[p.given[1]][1], 0.7, { class: 'given-wedge', style: `fill:${color}` }, 'top');
+    const mvPt = (p, pos) => { const d = V.sub(p, S.c0), o = pos || S.pos; return [o[0] + S.M[0][0] * d[0] + S.M[0][1] * d[1], o[1] + S.M[1][0] * d[0] + S.M[1][1] * d[1]]; };
+    function mvApply() {
+      const m11 = S.M[0][0], m12 = S.M[0][1], m21 = S.M[1][0], m22 = S.M[1][1];
+      const e = S.pos[0] - m11 * S.c0[0] - m12 * S.c0[1], f = S.pos[1] - m21 * S.c0[0] - m22 * S.c0[1];
+      S.g.setAttribute('transform', `matrix(${m11} ${m21} ${m12} ${m22} ${e} ${f})`);
+      S.poly.classList.toggle('match', S.snapped);
+      clear(S.lblG);
+      const P = S.base.map(p => mvPt(p));
+      P.forEach((q, i) => {
+        const d = Poly.inward(P, i), off = S.snapped ? -stage.fs * 1.0 : stage.fs * 0.95;
+        const z = V.sub(q, V.mul(d, off));
+        S.lblG.appendChild(sv('text', { x: z[0], y: z[1], 'text-anchor': 'middle', 'dominant-baseline': 'central', class: 'vlabel' + (S.snapped ? ' ghost-lbl' : '') }, figs[mv].labels[i]));
+      });
     }
-    function record(p) {
+    function snapCheck(quiet) {
+      const T = figs[onto].pts, cT = Poly.centroid(T);
+      if (V.dist(S.pos, cT) > 1.6) { S.snapped = false; mvApply(); return; }
+      const P = S.base.map(p => mvPt(p, cT));
+      if (P.every(q => T.some(t => V.dist(q, t) < 0.2))) {
+        S.pos = cT.slice(); S.snapped = true; mvApply(); Sound.good();
+        fb.className = 'fb good'; fb.innerHTML = '<b>완전히 겹쳐요!</b> 겹친 점·변·각을 살펴보고 아래 물음에 답해 보세요.';
+      } else {
+        S.snapped = false; mvApply();
+        if (!quiet) { Sound.tap(); fb.className = 'fb bad'; fb.innerHTML = '겹치지 않는 부분이 있어요. <b>돌리기</b>나 <b>뒤집기</b>를 해 보세요.'; }
+      }
+    }
+    if (S) {
+      mvApply();
+      stage.on({
+        dragStart: (p) => {
+          const P = S.base.map(q => mvPt(q));
+          dragOff = (Poly.pointIn(P, p) || V.dist(p, S.pos) < 1.4) ? V.sub(S.pos, p) : null;
+          if (dragOff) { S.snapped = false; }
+        },
+        dragMove: (p) => { if (dragOff) { S.pos = V.add(p, dragOff); mvApply(); } },
+        dragEnd: () => { if (dragOff) { dragOff = null; snapCheck(); } },
+        dragCancel: () => { if (dragOff) { dragOff = null; snapCheck(true); } },
+      });
+      ctrl.append(
+        el('span', { class: 'hint-chip' }, '✋ 도형을 손가락으로 끌어 포개어 보세요'),
+        btn('↻ 돌리기', () => { S.M = mul2([[0, -1], [1, 0]], S.M); S.snapped = false; snapCheck(true); }, 'secondary small'),
+        btn('⇋ 뒤집기', () => { S.M = mul2([[-1, 0], [0, 1]], S.M); S.snapped = false; snapCheck(true); }, 'secondary small'),
+        btn('⟲ 제자리', () => { S.M = [[1, 0], [0, 1]]; S.pos = S.c0.slice(); S.snapped = false; mvApply(); fb.className = 'fb'; fb.textContent = ''; }, 'ghost small'));
+    }
+    if (cfg.tools) cfg.tools(stage, ctrl);
+    box.appendChild(fb);
+
+    /* ----- 답 입력 ----- */
+    const pv = (g) => all[g];
+    const figPts = (g) => figs[figOf[g][0]].pts;
+    const L = (g) => labelOf[g];
+    const sideLen = (a, b) => fmt(V.dist(pv(a), pv(b)) * scale, 1) + ' ' + unit;
+    const angDeg = (g) => fmt(Poly.angleAt(figPts(g), figOf[g][1]), 0) + '°';
+    const KIND = { point: '점', side: '변', angle: '각' };
+    const NEED = { point: 1, side: 2, angle: 3 };
+    const letters = [...new Set(labelOf)].sort((a, b) => KO.indexOf(a) - KO.indexOf(b));
+
+    const qbox = el('div', { class: 'qi' });
+    const qtext = el('div', { class: 'cprompt' });
+    const ansRow = el('div', { class: 'qi-ans' });
+    const keys = el('div', { class: 'qi-keys' });
+    const qfb = el('div', { class: 'fb' });
+    const log = el('div', { class: 'clog' });
+    qbox.append(qtext, ansRow, keys, qfb);
+    box.append(qbox, log);
+
+    let k = 0, entered = [], wrong = 0, totalWrong = 0;
+    const cur = () => cfg.prompts[k];
+    const givenName = (q) => q.given.map(L).join('');
+    const answerSeq = (q) => q.given.map(g => L(M.get(g)));
+    function qHtml(q) {
+      const nm = `${KIND[q.type]} ${givenName(q)}`;
+      if (q.text) return q.text;
+      if (cfg.phrase === 'overlap') return `포개었을 때 <b>${nm}</b>과 겹치는 ${KIND[q.type]}${q.type === 'point' ? '은' : '은'} 무엇일까요?`;
+      return `<b>${nm}</b>의 대응${KIND[q.type]}은 무엇일까요?`;
+    }
+    function renderQ() {
+      clear(ansRow); clear(keys); stage.clearLayer('top');
+      const q = cur();
+      if (!q) { qtext.innerHTML = '✅ 모두 찾았어요!'; qbox.classList.add('done'); return; }
       const color = PAIR_COLORS[k % PAIR_COLORS.length];
+      qtext.innerHTML = `<span class="badge">${k + 1} / ${cfg.prompts.length}</span> ` + qHtml(q);
+      if (q.type === 'point') stage.circle(pv(q.given[0]), 0.32, { class: 'given-ring', style: `stroke:${color}` }, 'top');
+      if (q.type === 'side') stage.line(pv(q.given[0]), pv(q.given[1]), { class: 'given-side', style: `stroke:${color}` }, 'top');
+      if (q.type === 'angle') stage.angleWedge(figPts(q.given[1]), figOf[q.given[1]][1], 0.7, { class: 'given-wedge', style: `fill:${color}` }, 'top');
+      ansRow.appendChild(el('span', { class: 'qi-kind' }, KIND[q.type]));
+      for (let i = 0; i < NEED[q.type]; i++) ansRow.appendChild(el('span', { class: 'qi-slot' + (i === entered.length ? ' active' : '') }, entered[i] || ''));
+      letters.forEach(t => keys.appendChild(btn(t, () => { if (entered.length < NEED[q.type]) { entered.push(t); renderQ(); if (entered.length === NEED[q.type]) check(); } }, 'key-l')));
+      keys.appendChild(btn('⌫', () => { entered.pop(); renderQ(); }, 'key-l ghost'));
+    }
+    function record(q) {
+      const color = PAIR_COLORS[k % PAIR_COLORS.length];
+      const layerFor = (g) => figOf[g][0] === mv ? S.hl : stage.L('over');
+      const put = (g, node) => layerFor(g).appendChild(node);
       let text = '';
-      if (p.type === 'point') {
-        const a = p.given[0], b = M.get(a);
-        [a, b].forEach(g => stage.circle(pv(g), 0.2, { class: 'pair-dot', style: `fill:${color}` }, 'over'));
-        if (figOf[a][0] !== figOf[b][0] || cfg.linkPoints) stage.line(pv(a), pv(b), { class: 'pair-link', style: `stroke:${color}` }, 'help');
-        text = `${nameP(a)} ↔ ${nameP(b)}`;
-      } else if (p.type === 'side') {
-        const [a1, a2] = p.given, b1 = M.get(a1), b2 = M.get(a2);
-        stage.line(pv(a1), pv(a2), { class: 'pair-side', style: `stroke:${color}` }, 'over');
-        stage.line(pv(b1), pv(b2), { class: 'pair-side', style: `stroke:${color}` }, 'over');
-        text = `${nameS(a1, a2)} ↔ ${nameS(b1, b2)}`;
+      if (q.type === 'point') {
+        const a = q.given[0], b = M.get(a);
+        [a, b].forEach(g => put(g, sv('circle', { cx: pv(g)[0], cy: pv(g)[1], r: 0.2, class: 'pair-dot', style: `fill:${color}` })));
+        if (cfg.linkPoints && mv < 0) stage.line(pv(a), pv(b), { class: 'pair-link', style: `stroke:${color}` }, 'help');
+        text = `점 ${L(a)} ↔ 점 ${L(b)}`;
+      } else if (q.type === 'side') {
+        const [a1, a2] = q.given, b1 = M.get(a1), b2 = M.get(a2);
+        [[a1, a2], [b1, b2]].forEach(([x, y]) => put(x, sv('line', { x1: pv(x)[0], y1: pv(x)[1], x2: pv(y)[0], y2: pv(y)[1], class: 'pair-side', style: `stroke:${color}` })));
+        text = `변 ${L(a1)}${L(a2)} ↔ 변 ${L(b1)}${L(b2)}`;
         if (cfg.measure) {
           [[a1, a2], [b1, b2]].forEach(([x, y]) => {
+            if (figOf[x][0] === mv) return;
             const m = V.mid(pv(x), pv(y)), c = Poly.centroid(figPts(x));
             const out = V.norm(V.sub(m, V.foot(c, pv(x), pv(y))));
-            stage.text(V.add(m, V.mul(isFinite(out[0]) ? out : [0, -1], 0.55)), sideLen(x, y), { class: 'measure', style: `fill:${color}` }, 'top-keep');
+            stage.text(V.add(m, V.mul(isFinite(out[0]) ? out : [0, -1], stage.fs * 1.1)), sideLen(x, y), { class: 'measure', style: `fill:${color}` }, 'top-keep');
           });
           text += ` <span class="eq">${sideLen(a1, a2)} = ${sideLen(b1, b2)}</span>`;
         }
       } else {
-        const [ap, av, an] = p.given, bp = M.get(ap), bv = M.get(av), bn = M.get(an);
-        [av, bv].forEach(g => stage.angleWedge(figPts(g), figOf[g][1], 0.6, { class: 'pair-wedge', style: `fill:${color}` }, 'over'));
-        text = `${nameA(ap, av, an)} ↔ ${nameA(bp, bv, bn)}`;
+        const [ap, av, an] = q.given, bp = M.get(ap), bv = M.get(av), bn = M.get(an);
+        [av, bv].forEach(g => {
+          const w = stage.angleWedge(figPts(g), figOf[g][1], 0.6, { class: 'pair-wedge', style: `fill:${color}` }, 'over');
+          if (figOf[g][0] === mv) S.hl.appendChild(w); // 옮기는 도형과 함께 움직이도록
+        });
+        text = `각 ${L(ap)}${L(av)}${L(an)} ↔ 각 ${L(bp)}${L(bv)}${L(bn)}`;
         if (cfg.measure) {
           [av, bv].forEach(g => {
+            if (figOf[g][0] === mv) return;
             const P = figPts(g), i = figOf[g][1];
             stage.text(V.add(pv(g), V.mul(Poly.inward(P, i), 1.05)), angDeg(g), { class: 'measure small', style: `fill:${color}` }, 'top-keep');
           });
@@ -280,137 +358,157 @@
       }
       log.appendChild(el('div', { class: 'row', html: `<i style="background:${color}"></i>${text}` }));
     }
-
-    function onTap(p) {
-      if (busy || k >= cfg.prompts.length) return;
-      const q = cur(), r = Math.max(0.5, 30 * stage.unitPerPx());
-      let ok = false, picked = null;
-      if (q.type === 'point' || q.type === 'angle') {
-        let g = Hit.nearestVertex(all, p, r);
-        if (g < 0 && q.type === 'angle') {
-          // 각 안쪽(꼭짓점 근처)을 눌렀을 때
-          g = Hit.nearestVertex(all, p, r * 2);
-        }
-        if (g < 0) return;
-        picked = g;
-        const given = q.type === 'point' ? q.given[0] : q.given[1];
-        if (g === given) { toast('그것은 문제에 주어진 ' + (q.type === 'point' ? '점' : '각') + '이에요.', 'info'); return; }
-        ok = g === M.get(given);
-      } else {
-        // 변: 두 도형의 모든 변 중 가장 가까운 것
-        let best = null, bd = Math.max(0.4, 22 * stage.unitPerPx());
-        figs.forEach((f, fi) => f.pts.forEach((_, li) => {
-          const a = gid(fi, li), b = gid(fi, (li + 1) % f.pts.length);
-          const d = V.distToSeg(p, pv(a), pv(b));
-          if (d < bd) { bd = d; best = [a, b]; }
-        }));
-        if (!best) return;
-        picked = best;
-        const [g1, g2] = q.given;
-        const same = (x, y) => (x[0] === y[0] && x[1] === y[1]) || (x[0] === y[1] && x[1] === y[0]);
-        if (same(best, [g1, g2])) { toast('그것은 문제에 주어진 변이에요.', 'info'); return; }
-        ok = same(best, [M.get(g1), M.get(g2)]);
-      }
+    function check() {
+      const q = cur(), want = answerSeq(q);
+      const same = (a, b) => a.length === b.length && a.every((x, i) => x === b[i]);
+      // 변과 각은 어느 쪽부터 읽어도 정답 (예: 변 ㄹㅁ = 변 ㅁㄹ, 각 ㄹㅁㅂ = 각 ㅂㅁㄹ)
+      const ok = same(entered, want) || (q.type !== 'point' && same(entered, want.slice().reverse()));
       if (ok) {
         Sound.good(); record(q);
-        fb.className = 'fb good'; fb.innerHTML = R.pick(['정확해요!', '맞아요!', '잘 찾았어요!']);
-        k++; wrong = 0;
-        if (k >= cfg.prompts.length) { stage.clearLayer('top'); prompt.innerHTML = '✅ 모두 찾았어요!'; cfg.onDone && cfg.onDone({ wrong: totalWrong }); }
-        else showPrompt();
-      } else {
-        wrong++; totalWrong++; Sound.bad(); shake(stage.svg);
-        fb.className = 'fb bad';
-        fb.innerHTML = wrong >= 2 && cfg.hintText ? cfg.hintText(q) : (cfg.overlay ? '포개어 보면 어디와 겹칠지 생각해 보세요. <b>포개어 보기</b> 버튼을 눌러 확인할 수 있어요.' : (cfg.wrongText || '다시 찾아보세요.'));
-        if (wrong >= 3) {
-          // 정답 위치 깜박임
-          const given = q.type === 'side' ? null : (q.type === 'point' ? q.given[0] : q.given[1]);
-          if (given != null) { const c = stage.circle(pv(M.get(given)), 0.45, { class: 'hint-ring' }, 'top'); setTimeout(() => c.remove(), 1600); }
-          else { const l = stage.line(pv(M.get(q.given[0])), pv(M.get(q.given[1])), { class: 'hint-side' }, 'top'); setTimeout(() => l.remove(), 1600); }
-        }
+        qfb.className = 'fb good'; qfb.innerHTML = R.pick(['정확해요!', '맞아요!', '잘 찾았어요!']);
+        k++; wrong = 0; entered = [];
+        renderQ();
+        if (k >= cfg.prompts.length) cfg.onDone && cfg.onDone({ wrong: totalWrong });
+        return;
       }
+      wrong++; totalWrong++; Sound.bad(); shake(ansRow);
+      const typed = entered.join('');
+      let msg;
+      if (q.type === 'point' && typed === givenName(q)) msg = '문제에 나온 점을 그대로 썼어요. 겹치는 <b>다른</b> 점을 찾아요.';
+      else if (q.type === 'angle' && entered[1] !== want[1]) msg = `각을 읽을 때 <b>가운데 글자</b>는 꼭짓점이에요. 점 ${L(q.given[1])}의 대응점이 가운데에 와야 해요.`;
+      else msg = cfg.hintText ? cfg.hintText(q) : (mv >= 0 ? '도형을 끌어 포개어 보면 어디와 겹치는지 알 수 있어요.' : '다시 생각해 보세요.');
+      entered = [];
+      if (wrong >= 3) {
+        qfb.className = 'fb info'; qfb.innerHTML = `정답은 <b>${KIND[q.type]} ${want.join('')}</b>이에요.`;
+        record(q); k++; wrong = 0; renderQ();
+        if (k >= cfg.prompts.length) cfg.onDone && cfg.onDone({ wrong: totalWrong });
+        return;
+      }
+      qfb.className = 'fb bad'; qfb.innerHTML = msg;
+      renderQ();
     }
-    stage.on({ tap: onTap });
-
-    if (cfg.overlay) {
-      const ob = btn('🔁 포개어 보기', () => {
-        if (busy) return;
-        const { moving, onto } = cfg.overlay;
-        const B = figs[moving].pts, A = figs[onto].pts;
-        const mp = B.map((_, li) => figOf[M.get(gid(moving, li))][1]);
-        if (ghost) { ghost.forEach(n => n.remove()); ghost = null; ob.textContent = '🔁 포개어 보기'; return; }
-        busy = true;
-        const fr = isometryFrames(B, A, mp);
-        const g = stage.poly(B, { class: 'shape ghost ' + (moving ? 'fill-b' : 'fill-a') }, 'over');
-        const lbls = B.map((p, li) => stage.text(p, figs[moving].labels[li], { class: 'vlabel ghost-lbl' }, 'over'));
-        ghost = [g, ...lbls];
-        animate(fr.flip ? 2200 : 1400, t => {
-          const P = fr.at(t);
-          stage.setPoints(g, P);
-          P.forEach((q, li) => { const d = Poly.inward(B, li); const z = V.add(q, V.mul(V.rotVec(d, 0), 0)); lbls[li].setAttribute('x', z[0]); lbls[li].setAttribute('y', z[1]); });
-        }, () => {
-          const P = fr.at(1);
-          P.forEach((q, li) => { const ii = mp[li]; const z = V.add(A[ii], V.mul(Poly.inward(A, ii), 0.6)); lbls[li].setAttribute('x', z[0]); lbls[li].setAttribute('y', z[1]); });
-          busy = false; ob.textContent = '↩ 떼어 놓기';
-          toast(fr.flip ? '뒤집어서 포개니 완전히 겹쳐요!' : '포개니 완전히 겹쳐요!', 'good');
-        });
-      }, 'secondary');
-      ctrl.appendChild(ob);
-    }
-    showPrompt();
+    renderQ();
     return { stage };
   }
 
   /* =========================================================
      대칭축 긋기 (한 도형)
+     preview: 'fold' — 잘못 그은 선으로 접었을 때의 모양
+              'mirror' — 그 선에 거울을 세웠을 때 보이는 모양
      ========================================================= */
+  function polyOfFig(f) {
+    if (f.kind === 'poly') return f.pts;
+    if (f.kind === 'circle') return Array.from({ length: 72 }, (_, i) => V.add(f.c, V.rotVec([f.r, 0], i * 5)));
+    return null;
+  }
+  /** 다각형을 직선 a-b의 한쪽(sgn)으로 자르기 */
+  function clipHalf(P, a, b, sgn) {
+    const side = (p) => V.cross(V.sub(b, a), V.sub(p, a)) * sgn;
+    const out = [], n = P.length;
+    for (let i = 0; i < n; i++) {
+      const cur = P[i], prev = P[(i - 1 + n) % n], sc = side(cur), sp = side(prev);
+      const cut = () => V.lerp(prev, cur, sp / (sp - sc));
+      if (sc >= 0) { if (sp < 0) out.push(cut()); out.push(cur); }
+      else if (sp >= 0) out.push(cut());
+    }
+    return out;
+  }
+  const areaOf = (P) => P.length < 3 ? 0 : Math.abs(Poly.area2(P)) / 2;
+
   function AxisDraw(box, cfg) {
-    const f = cfg.fig;
+    const f = cfg.fig, mode = cfg.preview || 'fold';
     const bb = Fig.bbox(f), size = Math.max(bb.w, bb.h);
     const pad = size * 0.32;
     const view = cfg.view || { x0: bb.x0 - pad, y0: bb.y0 - pad, w: bb.w + 2 * pad, h: bb.h + 2 * pad };
     const stage = new Stage(box, Object.assign({ cls: 'axis-stage' }, view));
-    stage.fig(f, { class: 'shape fill-a ' + (cfg.shapeCls || '') });
+    const main = stage.fig(f, { class: 'shape fill-a ' + (cfg.shapeCls || '') });
+    const P0 = polyOfFig(f);
     const axes = Fig.axes(f);
     const total = axes === Infinity ? Infinity : axes.length;
     const c = Fig.center(f);
     const found = [];
-    let temp = null, finished = false, wrongCount = 0, giveups = 0;
-    const tolD = Math.max(0.25, size * 0.08);
+    let temp = null, finished = false, wrongCount = 0, giveups = 0, busy = false;
+    // 손으로 긋는 선은 조금 빗나가기 쉬우므로 넉넉하게 판정 (중심에서 도형 크기의 14%, 각도 15°)
+    const tolD = Math.max(0.35, size * 0.14), tolA = 15;
+    const angDiff = (a, b) => { const d = Math.abs(a - b) % 180; return Math.min(d, 180 - d); };
 
     const info = el('div', { class: 'axis-info' });
     const ctrl = el('div', { class: 'controls' });
     const fb = el('div', { class: 'fb' });
     box.append(info, ctrl, fb);
-    const upd = () => { info.innerHTML = `찾은 대칭축: <b>${found.length}</b>개`; };
+    const word = mode === 'mirror' ? '거울' : '대칭축';
+    const upd = () => { info.innerHTML = mode === 'mirror' ? `세운 거울: <b>${found.length}</b>개` : `찾은 대칭축: <b>${found.length}</b>개`; };
     upd();
 
     function drawAxis(deg, cls) {
       const d = V.rotVec([1, 0], deg);
-      return stage.fullLine(c, V.add(c, d), { class: cls || 'axis found' }, 'over', 0.05);
+      return stage.fullLine(c, V.add(c, d), { class: cls || ('axis found' + (mode === 'mirror' ? ' mirror' : '')) }, 'over', 0.05);
     }
+    /** 직선 a-b로 접거나 거울을 세웠을 때의 모습을 잠깐 보여 준다 */
+    function preview(a, b, good, done) {
+      if (!P0) { done && done(); return; }
+      const h1 = clipHalf(P0, a, b, 1), h2 = clipHalf(P0, a, b, -1);
+      const A1 = areaOf(h1), A2 = areaOf(h2);
+      const stay = A1 >= A2 ? h1 : h2, move = A1 >= A2 ? h2 : h1;
+      const nodes = [];
+      busy = true;
+      main.style.opacity = 0.18;
+      nodes.push(stage.poly(stay, { class: 'shape fold-stay' }, 'top'));
+      nodes.push(stage.fullLine(a, b, { class: 'axis ' + (good ? 'found' : 'bad') + (mode === 'mirror' ? ' mirror' : '') }, 'top', 0.05));
+      const flat = (p, t) => { const ft = V.foot(p, a, b); return V.add(ft, V.mul(V.sub(p, ft), 1 - 2 * t)); };
+      if (mode === 'fold') {
+        const mvP = stage.poly(move, { class: 'shape fold-move' + (good ? ' good' : '') }, 'top');
+        nodes.push(mvP);
+        animate(900, t => stage.setPoints(mvP, move.map(p => flat(p, t))), () => setTimeout(end, good ? 700 : 1900));
+      } else {
+        nodes.push(stage.poly(P0, { class: 'outline-ref' }, 'top'));
+        const img = stage.poly(stay, { class: 'shape mirror-img' + (good ? ' good' : '') }, 'top');
+        nodes.push(img);
+        animate(700, t => stage.setPoints(img, stay.map(p => flat(p, t))), () => setTimeout(end, good ? 700 : 1900));
+      }
+      function end() { nodes.forEach(n => n && n.remove()); main.style.opacity = ''; busy = false; done && done(); }
+    }
+
     stage.on({
-      dragStart: (p) => { if (finished) return; temp = stage.line(p, p, { class: 'axis temp' }, 'top'); },
-      dragMove: (p, s) => { if (temp) { temp.setAttribute('x2', p[0]); temp.setAttribute('y2', p[1]); } },
+      dragStart: (p) => { if (finished || busy) return; temp = stage.line(p, p, { class: 'axis temp' }, 'top'); },
+      dragMove: (p) => { if (temp) { temp.setAttribute('x2', p[0]); temp.setAttribute('y2', p[1]); } },
+      dragCancel: () => { if (temp) { temp.remove(); temp = null; } },
       dragEnd: (p, s) => {
-        if (temp) { temp.remove(); temp = null; }
-        if (finished || V.dist(p, s) < size * 0.2) return;
+        if (!temp) return;
+        temp.remove(); temp = null;
+        if (finished || busy) return;
+        if (V.dist(p, s) < Math.max(size * 0.12, 40 * stage.unitPerPx())) { fb.className = 'fb'; fb.textContent = '선을 조금 더 길게 그어 보세요.'; return; }
         const deg = ((V.angleOf(V.sub(p, s)) % 180) + 180) % 180;
         const dc = V.distToLine(c, s, p);
-        const angDiff = (a, b) => { const d = Math.abs(a - b) % 180; return Math.min(d, 180 - d); };
-        let match = null;
-        if (total === Infinity) { if (dc < tolD) match = { deg }; }
-        else axes.forEach(ax => { if (angDiff(ax.deg, deg) < 10 && V.distToLine(ax.a, s, p) < tolD) match = ax; });
+        let match = null, near = false;
+        if (total === Infinity) { if (dc < tolD) match = { deg }; else if (dc < size * 0.3) near = true; }
+        else axes.forEach(ax => {
+          const ad = angDiff(ax.deg, deg);
+          if (ad < tolA && dc < tolD && (!match || ad < angDiff(match.deg, deg))) match = ax;
+          else if (ad < 25 && dc < size * 0.3) near = true;
+        });
+        if (P0 && !match) {
+          const h1 = clipHalf(P0, s, p, 1), h2 = clipHalf(P0, s, p, -1);
+          if (areaOf(h1) < 1e-6 || areaOf(h2) < 1e-6) { fb.className = 'fb'; fb.textContent = '도형을 가로지르도록 선을 그어 보세요.'; return; }
+        }
         if (match) {
-          if (found.some(d => angDiff(d, match.deg) < (total === Infinity ? 12 : 1))) { fb.className = 'fb'; fb.textContent = '이미 찾은 대칭축이에요. 다른 방향도 생각해 보세요.'; Sound.tap(); return; }
-          found.push(match.deg); drawAxis(match.deg); Sound.good(); upd();
-          fb.className = 'fb good'; fb.textContent = '이 선을 따라 접으면 완전히 겹쳐요! 대칭축이에요.';
+          if (found.some(d => angDiff(d, match.deg) < (total === Infinity ? 12 : 1))) { fb.className = 'fb'; fb.textContent = `이미 찾은 ${word === '거울' ? '거울 자리' : '대칭축'}예요. 다른 방향도 생각해 보세요.`; Sound.tap(); return; }
+          found.push(match.deg); Sound.good(); upd();
+          const d = V.rotVec([1, 0], match.deg);
+          preview(c, V.add(c, d), true, () => drawAxis(match.deg));
+          fb.className = 'fb good';
+          fb.textContent = mode === 'mirror' ? '거울에 비친 모습이 원래 작품과 똑같아요! 이 선이 대칭축이에요.' : '이 선을 따라 접으면 완전히 겹쳐요! 대칭축이에요.';
           cfg.onAxis && cfg.onAxis(found.length);
+        } else if (near) {
+          Sound.tap();
+          fb.className = 'fb'; fb.innerHTML = '거의 비슷해요! 도형의 <b>한가운데</b>를 지나도록 조금 더 정확하게 그어 보세요.';
         } else {
           wrongCount++; Sound.bad();
-          const ln = stage.fullLine(s, p, { class: 'axis bad' }, 'top', 0.05);
-          const gh = stage.fig(Fig.map(f, q => V.reflect(q, s, p)), { class: 'shape ghost-bad' }, 'top');
-          setTimeout(() => { ln && ln.remove(); gh.remove(); }, 1700);
-          fb.className = 'fb bad'; fb.innerHTML = '이 선을 따라 접으면 <b>완전히 겹치지 않아요</b>. (빨간 점선이 접었을 때의 모양)';
+          preview(s, p, false);
+          fb.className = 'fb bad';
+          fb.innerHTML = mode === 'mirror'
+            ? '이 선에 거울을 세우면 <b>원래 작품과 다른 모양</b>이 보여요. (점선이 원래 작품)'
+            : '이 선을 따라 접으면 <b>완전히 겹치지 않아요</b>. 접힌 부분(빨간색)이 삐져나오거나 모자라요.';
         }
       },
     });
@@ -421,29 +519,30 @@
       cfg.onResult && cfg.onResult({ ok, found: found.length, total, wrong: wrongCount, giveups });
     }
     const showAll = () => {
-      if (total === Infinity) { [0, 30, 60, 90, 120, 150].forEach(d => { if (!found.some(x => Math.abs(x - d) < 12)) drawAxis(d, 'axis reveal'); }); }
-      else axes.forEach(ax => { if (!found.some(d => Math.abs(d - ax.deg) < 1 || Math.abs(Math.abs(d - ax.deg) - 180) < 1)) drawAxis(ax.deg, 'axis reveal'); });
+      if (total === Infinity) { [0, 30, 60, 90, 120, 150].forEach(d => { if (!found.some(x => angDiff(x, d) < 12)) drawAxis(d, 'axis reveal'); }); }
+      else axes.forEach(ax => { if (!found.some(d => angDiff(d, ax.deg) < 1)) drawAxis(ax.deg, 'axis reveal'); });
     };
-    ctrl.appendChild(btn('✔ 다 그었어요', () => {
-      if (finished) return;
-      if (total === 0) { Sound.bad(); giveups++; fb.className = 'fb bad'; fb.innerHTML = '이 도형은 어떤 직선을 따라 접어도 완전히 겹치지 않아요. 아래 <b>대칭축이 없어요</b>를 눌러 보세요.'; return; }
-      if (found.length === 0) { fb.className = 'fb bad'; fb.textContent = '손가락으로 도형 위에 선을 그어 대칭축을 표시해 보세요.'; return; }
+    const noneLabel = mode === 'mirror' ? '🚫 거울을 세울 곳이 없어요' : '🚫 대칭축이 없어요';
+    ctrl.appendChild(btn(mode === 'mirror' ? '✔ 다 세웠어요' : '✔ 다 그었어요', () => {
+      if (finished || busy) return;
+      if (total === 0) { Sound.bad(); giveups++; fb.className = 'fb bad'; fb.innerHTML = `이 도형은 어떤 직선으로도 완전히 겹치게 할 수 없어요. <b>${noneLabel.slice(2)}</b>를 눌러 보세요.`; return; }
+      if (found.length === 0) { fb.className = 'fb bad'; fb.textContent = '손가락으로 도형 위에 선을 그어 보세요.'; return; }
       if (total === Infinity) {
         if (found.length >= 2) { Sound.good(); showAll(); finish(true, '원은 중심을 지나는 직선이면 모두 대칭축이에요. 대칭축이 <b>셀 수 없이 많아요!</b>'); }
-        else { giveups++; Sound.bad(); fb.className = 'fb bad'; fb.textContent = '다른 방향으로도 대칭축을 그을 수 있을까요?'; }
+        else { giveups++; Sound.bad(); fb.className = 'fb bad'; fb.textContent = '다른 방향으로도 그을 수 있을까요?'; }
         return;
       }
-      if (found.length >= total) { Sound.good(); finish(true, `대칭축을 모두 찾았어요! 이 도형의 대칭축은 <b>${total}개</b>예요.`); }
+      if (found.length >= total) { Sound.good(); finish(true, `모두 찾았어요! 이 도형의 대칭축은 <b>${total}개</b>예요.`); }
       else {
         giveups++; Sound.bad();
         if (giveups >= 2) { showAll(); finish(false, `아직 찾지 못한 대칭축이 있었어요. 이 도형의 대칭축은 <b>${total}개</b>예요. (초록 점선)`); }
         else { fb.className = 'fb bad'; fb.innerHTML = '아직 찾지 못한 대칭축이 있어요. <b>세로·가로뿐 아니라 비스듬한 방향</b>으로도 생각해 보세요.'; }
       }
     }, 'primary'));
-    ctrl.appendChild(btn('🚫 대칭축이 없어요', () => {
-      if (finished) return;
-      if (total === 0) { Sound.good(); finish(true, '맞아요. 어떤 직선을 따라 접어도 완전히 겹치지 않으니 <b>선대칭도형이 아니에요.</b>'); }
-      else { giveups++; Sound.bad(); fb.className = 'fb bad'; fb.innerHTML = '이 도형은 완전히 겹치도록 접을 수 있는 직선이 있어요. 다시 찾아보세요.'; if (giveups >= 2) { showAll(); finish(false, `이 도형은 선대칭도형이에요. 대칭축은 <b>${total === Infinity ? '셀 수 없이 많아요' : total + '개'}</b>.`); } }
+    ctrl.appendChild(btn(noneLabel, () => {
+      if (finished || busy) return;
+      if (total === 0) { Sound.good(); finish(true, '맞아요. 어떤 직선으로도 완전히 겹치게 할 수 없으니 <b>선대칭도형이 아니에요.</b>'); }
+      else { giveups++; Sound.bad(); fb.className = 'fb bad'; fb.innerHTML = '이 도형은 완전히 겹치게 할 수 있는 직선이 있어요. 다시 찾아보세요.'; if (giveups >= 2) { showAll(); finish(false, `이 도형은 선대칭도형이에요. 대칭축은 <b>${total === Infinity ? '셀 수 없이 많아요' : total + '개'}</b>.`); } }
     }, 'ghost'));
     return { stage, axes, total };
   }

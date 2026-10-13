@@ -121,6 +121,26 @@
       }
       return false;
     },
+    /** 합동이면 대응 관계(P의 i번째 꼭짓점 ↔ Q의 map[i]번째 꼭짓점), 아니면 null */
+    congruentMap: (P, Q, tol = 0.02) => {
+      const n = P.length;
+      if (n !== Q.length) return null;
+      const sig = (X) => { const A = Poly.angles(X), L = Poly.sides(X); return X.map((_, i) => [A[i], L[i]]); };
+      const a = sig(P);
+      for (const rev of [false, true]) {
+        const idx = Q.map((_, j) => (rev ? n - 1 - j : j));
+        const b = sig(idx.map(j => Q[j]));
+        for (let s = 0; s < n; s++) {
+          let ok = true;
+          for (let i = 0; i < n && ok; i++) {
+            const x = a[i], y = b[(i + s) % n];
+            if (Math.abs(x[0] - y[0]) > 0.6 || Math.abs(x[1] - y[1]) > tol * Math.max(1, x[1])) ok = false;
+          }
+          if (ok) return P.map((_, i) => idx[(i + s) % n]);
+        }
+      }
+      return null;
+    },
     /** 단순 다각형인지(변끼리 교차하지 않는지) */
     isSimple: (P, allowCollinear) => {
       const n = P.length;

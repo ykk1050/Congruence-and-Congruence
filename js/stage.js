@@ -38,8 +38,15 @@
 
     _bindPointer() {
       let start = null, dragging = false, id = null;
+      // 진행 중이던 입력을 취소(두 번째 손가락, 손바닥 터치, 포인터 종료 신호 유실 대비)
+      const cancel = () => {
+        if (id !== null && dragging && this.handlers.dragCancel) this.handlers.dragCancel();
+        id = null; start = null; dragging = false;
+      };
       this.svg.addEventListener('pointerdown', (e) => {
-        if (id !== null) return;
+        // 이전 입력이 끝나지 않은 채 남아 있으면 그 입력을 버리고 새로 시작한다.
+        // (예전에는 여기서 새 입력을 무시해 화면이 ‘잠기는’ 문제가 있었음)
+        if (id !== null) cancel();
         id = e.pointerId; start = this.pt(e); dragging = false;
         try { this.svg.setPointerCapture(id); } catch (err) { /* noop */ }
         if (this.handlers.down) this.handlers.down(start, e);
@@ -61,7 +68,24 @@
         id = null; start = null; dragging = false;
       };
       this.svg.addEventListener('pointerup', up);
-      this.svg.addEventListener('pointercancel', (e) => { if (e.pointerId === id) { id = null; start = null; dragging = false; } });
+      this.svg.addEventListener('pointercancel', (e) => { if (e.pointerId === id) cancel(); });
+      // 화면 밖에서 손가락을 뗀 경우에도 입력을 끝낸다
+      this.svg.addEventListener('lostpointercapture', (e) => { if (e.pointerId === id) up(e); });
+    }
+    /** 길이 표시: 두 점을 잇는 호 모양 점선과 그 위의 값
+        away: 호가 볼록하게 나갈 반대쪽 기준점(보통 도형의 중심) */
+    dimArc(a, b, text, away, opt = {}) {
+      const m = V.mid(a, b), L = V.dist(a, b);
+      let n = V.norm(V.rotVec(V.sub(b, a), 90));
+      if (away && V.dot(V.sub(m, away), n) < -1e-9) n = V.mul(n, -1);
+      if (opt.flip) n = V.mul(n, -1);
+      const h = Math.min(L * 0.3, 1.1) + (opt.lift || 0);
+      const c = V.add(m, V.mul(n, 2 * h));
+      const g = this.add(sv('g', { class: 'dimg ' + (opt.cls || '') }), opt.layer || 'top');
+      g.appendChild(sv('path', { d: `M${a[0]},${a[1]} Q${c[0]},${c[1]} ${b[0]},${b[1]}`, class: 'dim-arc' }));
+      const t = V.add(m, V.mul(n, h + this.fs * 0.8));
+      g.appendChild(sv('text', { x: t[0], y: t[1], 'text-anchor': 'middle', 'dominant-baseline': 'central', class: 'measure ' + (opt.cls || '') }, text));
+      return g;
     }
     on(h) { Object.assign(this.handlers, h); return this; }
 

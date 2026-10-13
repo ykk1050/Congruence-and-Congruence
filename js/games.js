@@ -120,65 +120,172 @@
   }
 
   /* =========================================================
-     2차시 — 미술관 바닥 타일 수리 (합동인 도형 찾기)
+     도형의 합동 — 미술관 바닥 타일 수리 (타일을 끌어서 끼우기)
      ========================================================= */
+  let uid = 0;
+  /** 미술관 벽(그림 액자)과 대리석 바닥 그리기 */
+  function museumScene(st, W, floorY0, floorY1) {
+    const bg = st.L('bg');
+    bg.appendChild(sv('rect', { x: 0, y: 0, width: W, height: floorY0, class: 'mu-wall' }));
+    bg.appendChild(sv('rect', { x: 0, y: floorY0 - 0.25, width: W, height: 0.25, class: 'mu-base' }));
+    // 액자 세 개
+    const frames = [[2.2, 'sun'], [W / 2 - 2.6, 'mount'], [W - 7.4, 'grid']];
+    frames.forEach(([x, kind]) => {
+      const y = 0.35, w = 5.2, h = floorY0 - 1.05;
+      bg.appendChild(sv('rect', { x: x - 0.25, y: y - 0.25, width: w + 0.5, height: h + 0.5, rx: 0.1, class: 'mu-frame' }));
+      bg.appendChild(sv('rect', { x, y, width: w, height: h, class: 'mu-canvas ' + kind }));
+      if (kind === 'sun') {
+        bg.appendChild(sv('circle', { cx: x + w * 0.68, cy: y + h * 0.45, r: h * 0.28, class: 'mu-sun' }));
+        bg.appendChild(sv('rect', { x, y: y + h * 0.7, width: w, height: h * 0.3, class: 'mu-sea' }));
+      } else if (kind === 'mount') {
+        bg.appendChild(sv('polygon', { points: `${x},${y + h} ${x + w * 0.35},${y + h * 0.25} ${x + w * 0.6},${y + h * 0.65} ${x + w * 0.8},${y + h * 0.35} ${x + w},${y + h}`, class: 'mu-mount' }));
+      } else {
+        [[0, 0, 0.55, 0.6, 'r'], [0.55, 0, 0.45, 0.35, 'y'], [0.55, 0.35, 0.45, 0.65, 'w'], [0, 0.6, 0.3, 0.4, 'b'], [0.3, 0.6, 0.25, 0.4, 'w']].forEach(([a, b, c, d, col]) =>
+          bg.appendChild(sv('rect', { x: x + a * w, y: y + b * h, width: c * w, height: d * h, class: 'mu-mon ' + col })));
+      }
+      bg.appendChild(sv('rect', { x: x + w / 2 - 0.6, y: y + h + 0.35, width: 1.2, height: 0.35, rx: 0.05, class: 'mu-plate' }));
+    });
+    // 대리석 바닥 (한 칸 = 모눈 한 칸)
+    for (let y = floorY0; y < floorY1; y++) for (let x = 0; x < W; x++)
+      bg.appendChild(sv('rect', { x, y, width: 1, height: 1, class: 'mu-floor ' + ((x + y) % 2 ? 'a' : 'b') }));
+    // 관람 방향 화살표
+    const arrow = (x, y) => bg.appendChild(sv('polygon', { points: [[0, 0.3], [1.1, 0.3], [1.1, 0], [1.8, 0.5], [1.1, 1], [1.1, 0.7], [0, 0.7]].map(p => (x + p[0]) + ',' + (y + p[1])).join(' '), class: 'mu-arrow' }));
+    arrow(0.6, floorY1 - 1.6); arrow(W - 2.6, floorY1 - 1.6);
+  }
+
   function gameTiles(root) {
     GameShell(root, {
       id: 'g2', emoji: '🧩', title: '미술관 바닥 타일 수리',
       story: [
-        { who: 'dayun', text: '앗! 미술관 바닥의 관람 방향 타일이 깨졌어요.' },
-        { who: 'guide', text: '깨진 자리에 <b>꼭 맞는 타일</b>을 찾아 끼워 주세요. 모양과 크기가 같아서 <b>포개었을 때 완전히 겹치는</b> 타일만 들어가요. 타일은 돌리거나 뒤집어서 끼울 수 있어요.' },
+        { who: 'dayun', text: '앗! 미술관 바닥 타일이 깨져서 구멍이 났어요. 관람객이 걸려 넘어질 것 같아요.' },
+        { who: 'guide', text: '타일 상자에서 <b>깨진 자리에 꼭 맞는 타일</b>을 골라 손가락으로 끌어다 끼워 주세요. 모양과 크기가 같아서 <b>포개었을 때 완전히 겹치는</b> 타일만 들어가요. 돌리거나 뒤집어야 맞는 타일도 있어요.' },
       ],
-      mission: '깨진 자리와 <b>서로 합동인</b> 타일을 찾아요. 모눈의 칸 수를 세어 보면 도움이 돼요!',
+      mission: '깨진 자리와 <b>서로 합동인</b> 타일을 끌어서 끼워요. 바닥의 칸 수를 세어 보면 도움이 돼요!',
       rounds: 10, roundName: '타일',
       makeRound(area, api) {
-        const multi = api.level >= 3;
-        const P = Shapes.latticeShape(api.level);
-        const nOpt = multi ? 6 : api.level === 1 ? 3 : 4;
-        const nRight = multi ? R.int(2, 3) : 1;
-        const opts = [];
-        for (let k = 0; k < nRight; k++) opts.push({ P: Shapes.d4(P, R.int(0, 7)), ok: true });
+        const W = 28, F0 = 3, F1 = 11, T0 = 11.6, H = 18.2;
+        let P;
+        do { P = Shapes.latticeShape(api.level); } while (Math.max(Poly.bbox(P).w, Poly.bbox(P).h) > 5);
+        const nHoles = api.level >= 3 ? 2 : 1;
+        const nTiles = api.level === 1 ? 3 : 4;
+        // 깨진 자리(구멍): P를 돌리거나 뒤집은 모양
+        const holes = [];
+        for (let h = 0; h < nHoles; h++) {
+          const Q = Shapes.d4(P, R.int(0, 7)), b = Poly.bbox(Q);
+          const xMin = nHoles === 1 ? 4 : (h ? 15 : 2), xMax = nHoles === 1 ? W - 4 - b.w : (h ? W - 2 - b.w : 13 - b.w);
+          const x = R.int(xMin, Math.max(xMin, xMax)), y = R.int(F0 + 1, Math.max(F0 + 1, F1 - 1 - b.h));
+          holes.push({ pts: Q.map(p => [p[0] + x, p[1] + y]), filled: false });
+        }
+        // 타일: 맞는 것 nHoles개 + 비슷하지만 다른 것
+        const tiles = [];
+        for (let h = 0; h < nHoles; h++) tiles.push({ local: Shapes.d4(P, R.int(0, 7)), ok: true });
         let guard = 0;
-        while (opts.length < nOpt && guard++ < 100) {
-          const Q = Shapes.nearMiss(P);
+        while (tiles.length < nTiles && guard++ < 200) {
+          const Q = Shapes.nearMiss(P, 5);
           if (!Q) continue;
           const T = Shapes.d4(Q, R.int(0, 7));
-          if (opts.some(o => !o.ok && Poly.congruent(o.P, T)) && guard < 60) continue;
-          opts.push({ P: T, ok: false });
+          if (tiles.some(t => Poly.congruent(t.local, T)) && guard < 150) continue;
+          tiles.push({ local: T, ok: false });
         }
-        const list = R.shuffle(opts);
-        const S = Math.max(...[P].concat(list.map(o => o.P)).map(Q => { const b = Poly.bbox(Q); return Math.max(b.w, b.h); })) + 2;
-        const top = el('div', { class: 'tile-target' });
-        area.append(el('div', { class: 'q', html: multi ? '깨진 자리와 <b>서로 합동인 타일을 모두</b> 골라 확인을 눌러요.' : '깨진 자리에 꼭 맞는 타일을 골라요.' }), top);
-        const st = new Stage(top, { x0: -1, y0: -1, w: S, h: S, grid: true, cls: 'card-stage' });
-        const hole = st.poly(P, { class: 'hole' });
-        const cards = el('div', { class: 'tile-opts n' + nOpt });
-        area.appendChild(cards);
-        const sel = new Set();
-        let done = false;
-        const nodes = list.map((o, idx) => {
-          const c = el('button', { class: 'tile-card', type: 'button' });
-          const s = new Stage(c, { x0: -1, y0: -1, w: S, h: S, grid: true, cls: 'card-stage' });
-          s.poly(o.P, { class: 'shape tile' });
-          c.appendChild(el('span', { class: 'tag' }, '가나다라마바'[idx]));
-          c.addEventListener('click', () => {
-            if (done) return;
-            Sound.tap();
-            if (multi) { sel.has(idx) ? sel.delete(idx) : sel.add(idx); c.classList.toggle('sel'); return; }
-            if (o.ok) { done = true; c.classList.add('right'); hole.setAttribute('class', 'shape tile filled'); api.correct('타일이 딱 맞게 들어갔어요!'); }
-            else { c.classList.add('wrong'); shake(c); api.wrong('모양이나 크기가 달라요. 칸 수를 세어 보세요.'); }
-          });
-          cards.appendChild(c);
-          return c;
+        const order = R.shuffle(tiles);
+        const slotW = W / order.length;
+        order.forEach((t, i) => {
+          const b = Poly.bbox(t.local);
+          t.home = [Math.round(i * slotW + (slotW - b.w) / 2), Math.round(T0 + 0.5 + (H - T0 - 0.8 - b.h) / 2)];
+          t.pos = t.home.slice();
         });
-        const reveal = () => { done = true; nodes.forEach((c, k) => { if (list[k].ok) c.classList.add('right'); }); hole.setAttribute('class', 'shape tile filled'); api.giveUp('초록색 타일이 서로 합동인 타일이에요.'); };
-        api.onReveal(reveal);
-        if (multi) area.appendChild(el('div', { class: 'controls center' }, btn('확인', () => {
-          if (done) return;
-          const ok = list.every((o, k) => o.ok === sel.has(k));
-          if (ok) { done = true; nodes.forEach((c, k) => { if (list[k].ok) c.classList.add('right'); }); hole.setAttribute('class', 'shape tile filled'); api.correct('합동인 타일을 모두 찾았어요!'); }
-          else { shake(cards); api.wrong(sel.size === 0 ? '타일을 골라 주세요.' : '빠진 타일이나 잘못 고른 타일이 있어요.'); }
-        }, 'primary')));
+
+        area.appendChild(el('div', { class: 'q', html: nHoles > 1 ? '깨진 자리가 <b>두 군데</b>예요! 꼭 맞는 타일을 끌어서 모두 끼워요.' : '깨진 자리에 꼭 맞는 타일을 <b>끌어서</b> 끼워요.' }));
+        const st = new Stage(area, { x0: 0, y0: 0, w: W, h: H, cls: 'tile-stage' });
+        st.svg.classList.add('tappable');
+        museumScene(st, W, F0, F1);
+        // 타일 상자
+        st.L('bg').appendChild(sv('rect', { x: 0.15, y: T0, width: W - 0.3, height: H - T0 - 0.15, rx: 0.4, class: 'mu-box' }));
+        st.L('bg').appendChild(sv('text', { x: 0.7, y: T0 + 0.55, class: 'mu-box-lbl' }, '🧰 타일 상자'));
+        // 구멍 그리기 (구멍 안에도 바닥 칸 선이 보이도록)
+        holes.forEach(h => {
+          const id = 'hc' + (++uid);
+          const cp = sv('clipPath', { id }, sv('polygon', { points: h.pts.map(p => p.join(',')).join(' ') }));
+          st.L('main').appendChild(cp);
+          h.node = st.poly(h.pts, { class: 'shape mu-hole' });
+          const b = Poly.bbox(h.pts), g = sv('g', { 'clip-path': `url(#${id})`, class: 'mu-hole-grid' });
+          for (let x = Math.floor(b.x0); x <= b.x1; x++) g.appendChild(sv('line', { x1: x, y1: b.y0, x2: x, y2: b.y1 }));
+          for (let y = Math.floor(b.y0); y <= b.y1; y++) g.appendChild(sv('line', { x1: b.x0, y1: y, x2: b.x1, y2: y }));
+          st.L('main').appendChild(g);
+          h.grid = g;
+          // 금 간 자국
+          const c = Poly.centroid(h.pts);
+          h.pts.forEach((p, i) => {
+            if (i % 2) return;
+            const d = V.norm(V.sub(p, c)), q1 = V.add(p, V.mul(d, 0.35)), q2 = V.add(q1, V.mul(V.rotVec(d, 35), 0.3));
+            st.polyline([p, q1, q2], { class: 'mu-crack' }, 'main');
+          });
+        });
+        // 타일 그리기
+        order.forEach(t => {
+          const id = 'tc' + (++uid), b = Poly.bbox(t.local);
+          const g = sv('g', { class: 'mu-tile' });
+          g.appendChild(sv('clipPath', { id }, sv('polygon', { points: t.local.map(p => p.join(',')).join(' ') })));
+          g.appendChild(sv('polygon', { points: t.local.map(p => p.join(',')).join(' '), class: 'mu-tile-body' }));
+          const lines = sv('g', { 'clip-path': `url(#${id})`, class: 'mu-tile-grid' });
+          for (let x = 1; x < b.w; x++) lines.appendChild(sv('line', { x1: x, y1: 0, x2: x, y2: b.h }));
+          for (let y = 1; y < b.h; y++) lines.appendChild(sv('line', { x1: 0, y1: y, x2: b.w, y2: y }));
+          g.appendChild(lines);
+          g.appendChild(sv('polygon', { points: t.local.map(p => p.join(',')).join(' '), class: 'mu-tile-edge' }));
+          st.L('over').appendChild(g);
+          t.node = g;
+          place(t);
+        });
+        function place(t) { t.node.setAttribute('transform', `translate(${t.pos[0]} ${t.pos[1]})`); }
+        const world = (t) => t.local.map(p => V.add(p, t.pos));
+        function goHome(t) {
+          const from = t.pos.slice();
+          animate(350, k => { t.pos = V.lerp(from, t.home, k); place(t); }, () => { t.pos = t.home.slice(); place(t); });
+        }
+        function fit(t, h) {
+          const Wp = world(t), mp = Poly.congruentMap(Wp, h.pts);
+          t.used = true; h.filled = true;
+          t.node.remove();
+          const fr = isometryFrames(Wp, h.pts, mp);
+          const fly = st.poly(Wp, { class: 'shape mu-fly' }, 'top');
+          animate(fr.flip ? 1200 : 750, k => st.setPoints(fly, fr.at(k)), () => {
+            fly.remove();
+            h.node.setAttribute('class', 'shape mu-hole filled');
+            h.grid.setAttribute('class', 'mu-hole-grid filled');
+            const sp = st.circle(Poly.centroid(h.pts), 0.2, { class: 'mu-spark' }, 'top');
+            animate(500, k => { sp.setAttribute('r', 0.2 + k * 2.5); sp.style.opacity = 1 - k; }, () => sp.remove());
+            if (holes.every(x => x.filled)) { if (!revealed) api.correct(fr.flip ? '뒤집어서 끼우니 딱 맞아요!' : '타일이 딱 맞게 들어갔어요!'); }
+            else { Sound.good(); toast('딱 맞아요! 깨진 자리가 하나 더 있어요.', 'good'); }
+          });
+        }
+        let drag = null, revealed = false;
+        st.on({
+          tap: (p) => { if (order.some(t => !t.used && Poly.pointIn(world(t), p))) toast('타일을 손가락으로 끌어서 깨진 자리에 놓아 보세요.'); },
+          dragStart: (p) => {
+            const t = order.slice().reverse().find(x => !x.used && (Poly.pointIn(world(x), p) || world(x).some((q, i, A) => V.distToSeg(p, q, A[(i + 1) % A.length]) < 0.45)));
+            if (!t) return;
+            drag = { t, off: V.sub(t.pos, p) };
+            st.L('over').appendChild(t.node); // 맨 위로
+            t.node.classList.add('lifted');
+          },
+          dragMove: (p) => { if (drag) { drag.t.pos = V.add(p, drag.off); place(drag.t); } },
+          dragCancel: () => { if (drag) { drag.t.node.classList.remove('lifted'); goHome(drag.t); drag = null; } },
+          dragEnd: () => {
+            if (!drag) return;
+            const t = drag.t; drag = null;
+            t.node.classList.remove('lifted');
+            const Wp = world(t), c = Poly.centroid(Wp);
+            const h = holes.find(x => !x.filled && (Poly.pointIn(x.pts, c) || V.dist(c, Poly.centroid(x.pts)) < 1.8));
+            if (!h) { goHome(t); return; }
+            if (Poly.congruentMap(Wp, h.pts)) fit(t, h);
+            else { shake(st.svg); goHome(t); api.wrong('이 타일은 깨진 자리와 모양이나 크기가 달라서 들어가지 않아요. 칸 수를 세어 보세요.'); }
+          },
+        });
+        api.onReveal(() => {
+          revealed = true;
+          holes.forEach(h => { if (h.filled) return; const t = order.find(x => x.ok && !x.used); if (t) fit(t, h); });
+          setTimeout(() => api.giveUp('깨진 자리와 서로 합동인 타일이 끼워졌어요. 어떻게 돌리거나 뒤집었는지 살펴보세요.'), 1300);
+        });
       },
     });
   }
@@ -221,11 +328,7 @@
         if (tri && base.ang) { // 5° 단위 각도 그대로 사용 (A의 꼭짓점 순서와 같음)
           for (let j = 0; j < 3; j++) angA[j] = base.ang[j];
         }
-        const sideLabel = (P, i, txt, cls) => {
-          const m = V.mid(P[i], P[(i + 1) % n]), c = Poly.centroid(P);
-          const out = V.norm(V.sub(m, V.foot(c, P[i], P[(i + 1) % n])));
-          return st.text(V.add(m, V.mul(out, 0.6)), txt, { class: 'measure ' + (cls || '') });
-        };
+        const sideLabel = (P, i, txt, cls) => st.dimArc(P[i], P[(i + 1) % n], txt, Poly.centroid(P), { cls });
         const angLabel = (P, i, txt, cls) => { st.angleArc(P, i, 0.55, { class: 'arc ' + (cls || '') }); return st.text(V.add(P[i], V.mul(Poly.inward(P, i), 1.15)), txt, { class: 'measure small ' + (cls || '') }); };
         const q = el('div', { class: 'q' });
         const ansBox = el('div', { class: 'ans' });
@@ -315,38 +418,45 @@
   }
 
   /* =========================================================
-     4차시 — 색유리 창문 공방 (대칭축 긋기)
+     선대칭도형 — 거울 마술 전시실 (대칭축 찾기)
+     거울을 대칭축에 세우면 거울에 비친 반쪽과 남은 반쪽이 원래 작품과 똑같이 보인다.
+     (지도서 참고 자료: 거울을 이용하여 선대칭도형 만들기)
+     눈으로 보아 대칭인지 애매한 도형은 넣지 않는다.
      ========================================================= */
   function gameWindow(root) {
-    const L1 = ['정사각형', '직사각형', '이등변삼각형', '연모양', '평행사변형', '하트', '집모양', '직각삼각형', '등변사다리꼴', '화살표'];
-    const L2 = ['마름모', '정삼각형', '직각이등변삼각형', '정오각형', '정육각형', '평행사변형', '사다리꼴', '양쪽화살표', '오목사각형'];
-    const L3 = ['십자', '별', '정팔각형', '원', 'Z모양', '부등변삼각형', '정육각형', '정오각형', '마름모', '바람개비'];
-    const rolls = [];
+    const SYM1 = ['정사각형', '직사각형', '이등변삼각형', '연모양', '하트', '집모양', '등변사다리꼴', '화살표'];
+    const NON1 = ['평행사변형', '직각삼각형', 'L모양'];
+    const SYM2 = ['마름모', '정삼각형', '직각이등변삼각형', '정오각형', '정육각형', '양쪽화살표', '오목사각형', '원'];
+    const NON2 = ['평행사변형', '부등변삼각형', '직각사다리꼴', 'Z모양'];
+    const SYM3 = ['십자', '별', '정팔각형', '정육각형', '정오각형', '마름모', '원', '직사각형'];
+    const NON3 = ['Z모양', '바람개비', '번개', '부등변삼각형', 'L모양'];
+    const recent = [];
     GameShell(root, {
-      id: 'g4', emoji: '💠', title: '색유리 창문 공방',
+      id: 'g4', emoji: '✨', title: '거울 마술 전시실',
       story: [
-        { who: 'dayun', text: '색유리 창문의 무늬가 정말 아름다워요!' },
-        { who: 'guide', text: '유리 장인이 새 창문을 만들려고 해요. 유리 조각마다 <b>대칭축</b>을 모두 표시해 주어야 무늬를 맞출 수 있대요. 대칭축이 없는 조각도 섞여 있으니 조심하세요!' },
+        { who: 'dayun', text: '이 전시실에서는 작품 위에 <b>거울</b>을 세워 놓았어요. 거울에 비친 반쪽과 남은 반쪽이 합쳐져서 원래 작품과 똑같이 보여요!' },
+        { who: 'guide', text: '새 작품이 들어왔어요. 큐레이터를 도와 작품마다 <b>거울을 세울 수 있는 자리</b>를 모두 찾아 주세요. 거울은 작품의 <b>대칭축</b>에 세워야 원래 모양이 그대로 보여요. 거울을 세울 자리가 없는 작품도 있어요.' },
       ],
-      mission: '손가락으로 선을 그어 <b>대칭축을 모두</b> 찾아요. 대칭축은 여러 개일 수 있고, 비스듬할 수도 있어요.',
-      rounds: 10, roundName: '유리 조각',
+      mission: '손가락으로 선을 그어 거울(대칭축)을 세워요. 거울을 세울 자리는 <b>여러 개</b>일 수도, <b>비스듬할</b> 수도 있어요.',
+      rounds: 10, roundName: '작품',
       makeRound(area, api) {
-        const pool = api.level === 1 ? L1 : api.level === 2 ? L2 : L3;
-        let name; do { name = R.pick(pool); } while (rolls.length && rolls[rolls.length - 1] === name && pool.length > 1);
-        rolls.push(name);
+        const sym = api.level === 1 ? SYM1 : api.level === 2 ? SYM2 : SYM3;
+        const non = api.level === 1 ? NON1 : api.level === 2 ? NON2 : NON3;
+        let name;
+        for (let t = 0; t < 30; t++) { name = R.chance(0.3) ? R.pick(non) : R.pick(sym); if (!recent.includes(name)) break; }
+        recent.push(name); if (recent.length > 3) recent.shift();
         const rot = api.level === 1 ? 0 : R.int(0, 11) * 15;
         const fig = name === '원' ? Fig.circle([0, 0], 3.2) : Shapes.polyShape(name, rot).fig;
-        area.appendChild(el('div', { class: 'q', html: '유리 조각에 <b>대칭축을 모두</b> 그어요. 다 그으면 <b>다 그었어요</b>를 눌러요.' }));
-        const box = el('div', { class: 'work glass' });
+        area.appendChild(el('div', { class: 'q', html: '작품에 <b>거울을 세울 수 있는 자리</b>를 모두 찾아 선을 그어요. 다 찾으면 <b>다 세웠어요</b>를 눌러요.' }));
+        const box = el('div', { class: 'work mirror-room' });
         area.appendChild(box);
-        const colors = ['glass-1', 'glass-2', 'glass-3', 'glass-4', 'glass-5'];
         UI.AxisDraw(box, {
-          fig, shapeCls: R.pick(colors),
+          fig, preview: 'mirror', shapeCls: R.pick(['glass-1', 'glass-2', 'glass-3', 'glass-4', 'glass-5']),
           view: { x0: -5.2, y0: -4.6, w: 10.4, h: 9.2 },
           onResult(r) {
-            if (r.ok && r.wrong === 0 && r.giveups === 0) api.correct(r.total === 0 ? '대칭축이 없는 조각을 알아봤어요!' : '대칭축을 한 번에 모두 찾았어요!');
-            else if (r.ok) api.correct('대칭축을 모두 찾았어요!', true);
-            else api.giveUp('초록 점선이 찾지 못한 대칭축이에요.');
+            if (r.ok && r.wrong === 0 && r.giveups === 0) api.correct(r.total === 0 ? '거울을 세울 수 없는 작품을 알아봤어요!' : '거울 자리를 한 번에 모두 찾았어요!');
+            else if (r.ok) api.correct('거울 자리를 모두 찾았어요!', true);
+            else api.giveUp('초록 점선이 찾지 못한 거울 자리(대칭축)예요.');
           },
         });
       },
@@ -382,11 +492,7 @@
     let a2, b2, o2;
     if (isLine) { a2 = T(A); b2 = T(B); st.fullLine(a2, b2, { class: 'axis' }, 'help', 0.3); }
     else { o2 = T(O); st.circle(o2, 0.13, { class: 'center-dot' }, 'ui'); st.text(V.add(o2, [0.35, 0.35]), extra[0], { class: 'vlabel center-lbl' }); }
-    const sideLabel = (i, txt, cls) => {
-      const a = P[i], b = P[(i + 1) % n], m = V.mid(a, b), c = Poly.centroid(P);
-      const out = V.norm(V.sub(m, V.foot(c, a, b)));
-      return st.text(V.add(m, V.mul(out, 0.6)), txt, { class: 'measure ' + (cls || '') });
-    };
+    const sideLabel = (i, txt, cls) => st.dimArc(P[i], P[(i + 1) % n], txt, Poly.centroid(P), { cls });
     const angLabel = (i, txt, cls) => { st.angleArc(P, i, 0.5, { class: 'arc ' + (cls || '') }); st.text(V.add(P[i], V.mul(Poly.inward(P, i), 1.05)), txt, { class: 'measure small ' + (cls || '') }); };
     const sideName = (i) => L[i] + L[(i + 1) % n];
     const angName = (i) => L[(i - 1 + n) % n] + L[i] + L[(i + 1) % n];
@@ -424,8 +530,8 @@
       st.text(V.add(f, [0.4, 0.5]), extra[0], { class: 'vlabel' });
       if (type === 'dist') {
         const v = R.int(2, 12);
-        st.text(V.add(V.mid(P[i], f), [0, -0.45]), v + ' cm', { class: 'measure' });
-        st.text(V.add(V.mid(P[j], f), [0, -0.45]), '? cm', { class: 'measure ask' });
+        st.dimArc(P[i], f, v + ' cm', Poly.centroid(P));
+        st.dimArc(P[j], f, '? cm', Poly.centroid(P), { cls: 'ask' });
         q.innerHTML = `직선 ${extra[1]}${extra[2]}이 대칭축이에요. <b>선분 ${L[j]}${extra[0]}</b>의 길이는 몇 cm일까요?`;
         answer = v;
       } else {
@@ -438,11 +544,13 @@
       st.line(P[i], P[j], { class: 'pair-link solid' }, 'help');
       const half = R.int(3, 14);
       if (type === 'half') {
-        st.text(V.add(V.mid(P[i], P[j]), [0.6, -0.5]), (2 * half) + ' cm', { class: 'measure' });
+        st.dimArc(P[i], P[j], (2 * half) + ' cm', null);
+        st.dimArc(P[i], o2, '? cm', null, { cls: 'ask', flip: true });
         q.innerHTML = `선분 ${L[i]}${L[j]}의 길이는 <b>${2 * half} cm</b>예요. <b>선분 ${L[i]}${extra[0]}</b>의 길이는 몇 cm일까요?`;
         answer = half;
       } else {
-        st.text(V.add(V.mid(P[i], o2), [0, -0.45]), half + ' cm', { class: 'measure' });
+        st.dimArc(P[i], o2, half + ' cm', null);
+        st.dimArc(P[i], P[j], '? cm', null, { cls: 'ask', flip: true });
         q.innerHTML = `선분 ${L[i]}${extra[0]}의 길이가 <b>${half} cm</b>일 때, <b>선분 ${L[i]}${L[j]}</b>의 길이는 몇 cm일까요?`;
         answer = 2 * half;
       }
@@ -694,7 +802,7 @@
   window.Games = {
     g2: { title: '미술관 바닥 타일 수리', run: gameTiles },
     g3: { title: '승현이의 판화 공방', run: gamePrint },
-    g4: { title: '색유리 창문 공방', run: gameWindow },
+    g4: { title: '거울 마술 전시실', run: gameWindow },
     g5: { title: '데칼코마니 작품 복원', run: gameDecal },
     g7: { title: '천장 글자 작품 감별사', run: gameLetters },
     g9: { title: '바람개비 공원 만들기', run: gamePinwheel },

@@ -334,20 +334,18 @@
     const figs = [{ pts: A, labels: ['ㄱ', 'ㄴ', 'ㄷ'] }, { pts: B, labels: ['ㄹ', 'ㅁ', 'ㅂ'] }];
     const map = [[0, 3], [1, 4], [2, 5]];
     const view = { x0: 0, y0: 0, w: 17, h: 6.2 };
-    const mk = (c, type, prompts, after) => Correspond(c.area(), { view, figs, map, phrase: 'overlap', overlay: { moving: 1, onto: 0 }, prompts, onDone: () => { after && after(); c.done(); } });
     UI.runSteps(root, [
       (c) => {
-        c.say('판화 체험장이에요! 판에 새긴 삼각형과 찍어 낸 삼각형은 모양과 크기가 같아요. <b>포개어 보기</b>를 눌러 완전히 겹쳐 보고, 겹치는 <b>꼭짓점</b>을 찾아보세요.', 'seung');
-        mk(c, 'point', [{ type: 'point', given: [0] }, { type: 'point', given: [1] }, { type: 'point', given: [2] }]);
-      },
-      (c) => {
-        c.say('이번에는 포개었을 때 겹치는 <b>변</b>을 찾아요.', 'dayun');
-        mk(c, 'side', [{ type: 'side', given: [0, 1] }, { type: 'side', given: [1, 2] }, { type: 'side', given: [2, 0] }]);
-      },
-      (c) => {
-        c.say('포개었을 때 겹치는 <b>각</b>을 찾아요. 각은 꼭짓점 <b>안쪽</b>을 눌러요.', 'seung');
-        mk(c, 'angle', [{ type: 'angle', given: [2, 0, 1] }, { type: 'angle', given: [0, 1, 2] }, { type: 'angle', given: [1, 2, 0] }], () => {
-          conceptCard(c.box, '대응점, 대응변, 대응각', '서로 합동인 두 도형을 완전히 겹치도록 포개었을 때 겹치는 점을 <b>대응점</b>, 겹치는 변을 <b>대응변</b>, 겹치는 각을 <b>대응각</b>이라고 합니다.');
+        c.say('판화 체험장이에요! 판에 새긴 삼각형과 찍어 낸 삼각형은 모양과 크기가 같아요. 오른쪽 삼각형 ㄹㅁㅂ을 <b>손가락으로 끌어</b> 삼각형 ㄱㄴㄷ 위에 완전히 겹치도록 포개어 보세요. 그리고 겹치는 점·변·각을 글자로 입력해요.', 'seung');
+        Correspond(c.area(), {
+          view, figs, map, phrase: 'overlap', drag: { moving: 1, onto: 0 },
+          prompts: [[0], [1], [2]].map(g => ({ type: 'point', given: g }))
+            .concat([[0, 1], [1, 2], [2, 0]].map(g => ({ type: 'side', given: g })))
+            .concat([[2, 0, 1], [0, 1, 2], [1, 2, 0]].map(g => ({ type: 'angle', given: g }))),
+          onDone: () => {
+            conceptCard(c.box, '대응점, 대응변, 대응각', '서로 합동인 두 도형을 완전히 겹치도록 포개었을 때 겹치는 점을 <b>대응점</b>, 겹치는 변을 <b>대응변</b>, 겹치는 각을 <b>대응각</b>이라고 합니다.');
+            c.done();
+          },
         });
       },
     ]);
@@ -361,18 +359,11 @@
     const view = { x0: 0, y0: 0, w: 17, h: 5.4, grid: true };
     UI.runSteps(root, [
       (c) => {
-        c.say('두 사각형은 서로 합동이에요. 대응변을 찾으면 <b>디지털 자</b>가 길이를 재어 줘요. (모눈 한 칸은 1 cm) 대응변의 길이를 비교해 보세요.', 'guide');
+        c.say('두 사각형은 서로 합동이에요. 대응변과 대응각을 입력하면 <b>디지털 자와 각도기</b>가 길이와 크기를 재어 줘요. (모눈 한 칸은 1 cm) 헷갈리면 사각형 ㅁㅂㅅㅇ을 끌어 포개어 보세요.', 'guide');
         Correspond(c.area(), {
-          view, figs, map, measure: true, overlay: { moving: 1, onto: 0 },
-          prompts: [{ type: 'side', given: [0, 3] }, { type: 'side', given: [3, 2] }, { type: 'side', given: [2, 1] }, { type: 'side', given: [1, 0] }],
-          onDone: c.done,
-        });
-      },
-      (c) => {
-        c.say('이번에는 대응각을 찾으면 <b>디지털 각도기</b>가 크기를 재어 줘요. 대응각의 크기를 비교해 보세요.', 'guide');
-        Correspond(c.area(), {
-          view, figs, map, measure: true, overlay: { moving: 1, onto: 0 },
-          prompts: [{ type: 'angle', given: [0, 3, 2] }, { type: 'angle', given: [3, 2, 1] }, { type: 'angle', given: [0, 1, 2] }, { type: 'angle', given: [1, 0, 3] }],
+          view, figs, map, measure: true, drag: { moving: 1, onto: 0 },
+          prompts: [[0, 3], [3, 2], [2, 1], [1, 0]].map(g => ({ type: 'side', given: g }))
+            .concat([[0, 3, 2], [3, 2, 1], [0, 1, 2], [1, 0, 3]].map(g => ({ type: 'angle', given: g }))),
           onDone: c.done,
         });
       },
@@ -399,7 +390,7 @@
     function figure(stage, ask) {
       stage.poly(A, { class: 'shape fill-a' }); stage.poly(B, { class: 'shape fill-b' });
       stage.vertexLabels(A, LA); stage.vertexLabels(B, LB);
-      const sideLabel = (P, i, t, cls) => { const m = V.mid(P[i], P[(i + 1) % 4]), cc = Poly.centroid(P), out = V.norm(V.sub(m, V.foot(cc, P[i], P[(i + 1) % 4]))); stage.text(V.add(m, V.mul(out, 0.55)), t, { class: 'measure ' + (cls || '') }); };
+      const sideLabel = (P, i, t, cls) => stage.dimArc(P[i], P[(i + 1) % 4], t, Poly.centroid(P), { cls });
       const angLabel = (P, i, t, cls) => { stage.angleArc(P, i, 0.5, { class: 'arc ' + (cls || '') }); stage.text(V.add(P[i], V.mul(Poly.inward(P, i), 1.05)), t, { class: 'measure small ' + (cls || '') }); };
       angLabel(A, 1, angA[1] + '°'); angLabel(A, 2, angA[2] + '°');
       sideLabel(B, 1, len[1] + ' cm'); sideLabel(B, 2, len[2] + ' cm');
@@ -428,14 +419,12 @@
     const view = { x0: 0, y0: 0, w: 17.4, h: 6.6 };
     UI.runSteps(root, [
       (c) => {
-        c.say('퍼즐의 빈 곳에 삼각형 ㄱㄴㄷ을 채우면 퍼즐이 완성돼요. 삼각형 ㄱㄴㄷ은 퍼즐의 삼각형 ㅁㅂㄹ과 서로 합동이에요. 이번에는 <b>돌려서</b> 포개야 해요! 대응점을 찾아보세요.', 'dayun');
-        Correspond(c.area(), { view, figs, map, overlay: { moving: 1, onto: 0 }, prompts: [{ type: 'point', given: [0] }, { type: 'point', given: [1] }, { type: 'point', given: [2] }], onDone: c.done });
-      },
-      (c) => {
-        c.say('대응변과 대응각도 찾아 친구에게 설명해 보세요.', 'seung');
+        c.say('삼각형 ㄱㄴㄷ 조각을 퍼즐의 빈 곳(삼각형 ㅁㅂㄹ)에 끼우면 퍼즐이 완성돼요. 조각을 <b>끌어서</b> 옮기고, 맞지 않으면 <b>돌리기</b>를 눌러 보세요. 그리고 대응점·대응변·대응각을 입력해 친구에게 설명해 보세요.', 'dayun');
         Correspond(c.area(), {
-          view, figs, map, overlay: { moving: 1, onto: 0 },
-          prompts: [{ type: 'side', given: [0, 1] }, { type: 'side', given: [1, 2] }, { type: 'side', given: [2, 0] }, { type: 'angle', given: [2, 0, 1] }, { type: 'angle', given: [0, 1, 2] }, { type: 'angle', given: [1, 2, 0] }],
+          view, figs, map, drag: { moving: 0, onto: 1 },
+          prompts: [[0], [1], [2]].map(g => ({ type: 'point', given: g }))
+            .concat([[0, 1], [1, 2], [2, 0]].map(g => ({ type: 'side', given: g })))
+            .concat([[2, 0, 1], [0, 1, 2], [1, 2, 0]].map(g => ({ type: 'angle', given: g }))),
           onDone: () => { conceptCard(c.box, '친구에게 설명하기', '예) “삼각형 ㄱㄴㄷ과 삼각형 ㅁㅂㄹ은 서로 합동이야. 점 ㄱ의 대응점은 점 ㅁ, 변 ㄱㄴ의 대응변은 변 ㅁㅂ, 각 ㄱㄴㄷ의 대응각은 각 ㅁㅂㄹ이야. 대응변의 길이와 대응각의 크기는 각각 같아.”'); c.done(); },
         });
       },
@@ -526,16 +515,13 @@
     const base = { view: { x0: -5, y0: -4.6, w: 10, h: 9.2 }, figs, map, axis: { a: [0, -4.2], b: [0, 4.2], labels: ['ㅅ', 'ㅇ'] } };
     UI.runSteps(root, [
       (c) => {
-        c.say('직선 ㅅㅇ을 대칭축으로 하는 선대칭도형이에요. 대칭축을 따라 접었을 때 겹치는 점이 <b>대응점</b>이에요.', 'guide');
-        const cor = Correspond(c.area(), Object.assign({}, base, { prompts: [{ type: 'point', given: [1] }, { type: 'point', given: [2] }], onDone: c.done, hintText: () => '대칭축 ㅅㅇ을 따라 접으면 어느 점과 겹칠지 생각해 보세요.' }));
-        c.controls().appendChild(motionButton(cor.stage, P, figs[0].labels, 'fold', null, [[0, -4], [0, 4]], '📖 대칭축으로 접어 확인'));
-      },
-      (c) => {
-        Correspond(c.area(), Object.assign({}, base, { prompts: [{ type: 'side', given: [0, 1] }, { type: 'side', given: [1, 2] }, { type: 'side', given: [2, 3] }], onDone: c.done }));
-      },
-      (c) => {
+        c.say('직선 ㅅㅇ을 대칭축으로 하는 선대칭도형이에요. 대칭축을 따라 접었을 때 겹치는 점을 <b>대응점</b>, 겹치는 변을 <b>대응변</b>, 겹치는 각을 <b>대응각</b>이라고 해요. 글자를 눌러 답을 입력해요.', 'guide');
         Correspond(c.area(), Object.assign({}, base, {
-          prompts: [{ type: 'angle', given: [0, 1, 2] }, { type: 'angle', given: [1, 2, 3] }],
+          prompts: [[1], [2]].map(g => ({ type: 'point', given: g }))
+            .concat([[0, 1], [1, 2], [2, 3]].map(g => ({ type: 'side', given: g })))
+            .concat([[0, 1, 2], [1, 2, 3]].map(g => ({ type: 'angle', given: g }))),
+          hintText: () => '대칭축 ㅅㅇ을 따라 접으면 어디와 겹칠지 생각해 보세요. <b>대칭축으로 접어 확인</b>을 눌러 볼 수도 있어요.',
+          tools: (st, ctl) => ctl.appendChild(motionButton(st, P, figs[0].labels, 'fold', null, [[0, -4], [0, 4]], '📖 대칭축으로 접어 확인')),
           onDone: () => { conceptCard(c.box, '선대칭도형의 대응점, 대응변, 대응각', '대칭축을 따라 접었을 때 겹치는 점을 <b>대응점</b>, 겹치는 변을 <b>대응변</b>, 겹치는 각을 <b>대응각</b>이라고 합니다.'); c.done(); },
         }));
       },
@@ -552,12 +538,11 @@
     const base = { view: { x0: -4.5, y0: -3.4, w: 9, h: 6.6 }, figs, map, axis: { a: [0, -3], b: [0, 4], labels: ['ㅅ', 'ㅇ'] }, measure: true, scale: 2 };
     UI.runSteps(root, [
       (c) => {
-        c.say('선대칭도형 작품에서 대응변을 찾아 길이를 재어 비교해요. 대응변을 누르면 <b>디지털 자</b>가 길이를 재어 줘요.', 'guide');
-        Correspond(c.area(), Object.assign({}, base, { prompts: [{ type: 'side', given: [0, 1] }, { type: 'side', given: [1, 2] }, { type: 'side', given: [2, 3] }], onDone: c.done }));
-      },
-      (c) => {
-        c.say('대응각을 찾아 크기를 비교해요. (꼭짓점 안쪽을 눌러요)', 'guide');
-        Correspond(c.area(), Object.assign({}, base, { prompts: [{ type: 'angle', given: [0, 1, 2] }, { type: 'angle', given: [1, 2, 3] }], onDone: c.done }));
+        c.say('선대칭도형 작품에서 대응변과 대응각을 입력하면 <b>디지털 자와 각도기</b>가 길이와 크기를 재어 줘요. 재어 본 값을 비교해 보세요.', 'guide');
+        Correspond(c.area(), Object.assign({}, base, {
+          prompts: [[0, 1], [1, 2], [2, 3]].map(g => ({ type: 'side', given: g })).concat([[0, 1, 2], [1, 2, 3]].map(g => ({ type: 'angle', given: g }))),
+          onDone: c.done,
+        }));
       },
       (c) => {
         fillBlank(c.box, { parts: ['선대칭도형은 ', { ans: '대응변' }, '의 길이와 ', { ans: '대응각' }, '의 크기가 각각 같습니다.'], chips: ['대응변', '대응각', '대칭축', '대응점'], onDone: c.done });
@@ -601,7 +586,7 @@
         st.poly(P1, { class: 'shape fill-a' });
         st.fullLine([0, -3.6], [0, 3.6], { class: 'axis' }, 'help', 0.3);
         st.text([0.5, -3.4], 'ㄱ', { class: 'vlabel axis-lbl' }); st.text([0.5, 3.4], 'ㄴ', { class: 'vlabel axis-lbl' });
-        const lab = (i, t, cls) => { const a = P1[i], b = P1[(i + 1) % 5], m = V.mid(a, b), out = V.norm(V.sub(m, V.foot([0, 0], a, b))); st.text(V.add(m, V.mul(out, 0.6)), t, { class: 'measure ' + (cls || '') }); };
+        const lab = (i, t, cls) => st.dimArc(P1[i], P1[(i + 1) % 5], t, [0, 0], { cls });
         lab(1, '5 cm'); lab(3, '? cm', 'ask');
         st.angleArc(P1, 4, 0.5, {}); st.text(V.add(P1[4], V.mul(Poly.inward(P1, 4), 1.05)), ang + '°', { class: 'measure small' });
         st.angleArc(P1, 1, 0.5, { class: 'arc ask' }); st.text(V.add(P1[1], V.mul(Poly.inward(P1, 1), 1.05)), '?°', { class: 'measure small ask' });
@@ -617,7 +602,7 @@
         st.text([-4.5, -0.45], 'ㄱ', { class: 'vlabel axis-lbl' }); st.text([4.5, -0.45], 'ㄴ', { class: 'vlabel axis-lbl' });
         st.line(P2[2], P2[4], { class: 'pair-link solid' }, 'help');
         st.rightMark([1.4, 0], [0, -1], [1, 0], 0.35, { class: 'right-mark ask-mark' }, 'help');
-        st.text([0.6, -1.1], '4 cm', { class: 'measure' }); st.text([0.55, 1.1], '? cm', { class: 'measure ask' });
+        st.dimArc([1.4, -2.2], [1.4, 0], '4 cm', [5, 0]); st.dimArc([1.4, 0], [1.4, 2.2], '? cm', [5, 0], { cls: 'ask' });
         st.text([2.2, -0.45], '?°', { class: 'measure small ask' });
         let n = 0; const fin = () => { if (++n === 2) { conceptCard(c.box, '선대칭도형의 성질', '• 대응변의 길이와 대응각의 크기가 각각 같아요.<br>• 대응점끼리 이은 선분은 대칭축과 <b>수직</b>으로 만나요.<br>• 대응점에서 대칭축까지의 <b>거리가 같아요</b>.'); c.done(); } };
         numQuestion(c.box, { q: '<b>? cm</b>로 표시한 선분의 길이는 몇 cm일까요?', answer: 4, unit: 'cm', hint: '대응점에서 대칭축까지의 거리는 같아요.', onDone: fin });
@@ -797,23 +782,18 @@
     const figs = [{ pts: hexP, labels: ['ㄱ', 'ㄴ', 'ㄷ', 'ㄹ', 'ㅁ', 'ㅂ'] }];
     const map = [[0, 3], [1, 4], [2, 5]];
     const base = { view: { x0: -4.6, y0: -3.4, w: 9.2, h: 6.8 }, figs, map, center: { p: [0, 0], label: 'ㅇ' } };
-    const spin = (cor, c) => c.controls().appendChild(motionButton(cor.stage, hexP, figs[0].labels, 'rot', [0, 0], null, '↻ 180° 돌려 확인'));
     UI.runSteps(root, [
       (c) => {
-        c.say('점 ㅇ을 대칭의 중심으로 하는 점대칭도형이에요. 대칭의 중심을 중심으로 180° 돌렸을 때 겹치는 점이 <b>대응점</b>이에요.', 'guide');
-        const cor = Correspond(c.area(), Object.assign({}, base, { prompts: [0, 1, 2].map(i => ({ type: 'point', given: [i] })), linkPoints: true, onDone: c.done, hintText: () => '점 ㅇ을 중심으로 180° 돌리면 어디로 갈지 생각해 보세요.' }));
-        spin(cor, c);
-      },
-      (c) => {
-        const cor = Correspond(c.area(), Object.assign({}, base, { prompts: [[0, 1], [1, 2], [2, 3]].map(g => ({ type: 'side', given: g })), onDone: c.done }));
-        spin(cor, c);
-      },
-      (c) => {
-        const cor = Correspond(c.area(), Object.assign({}, base, {
-          prompts: [[0, 1, 2], [1, 2, 3], [2, 3, 4]].map(g => ({ type: 'angle', given: g })),
+        c.say('점 ㅇ을 대칭의 중심으로 하는 점대칭도형이에요. 대칭의 중심을 중심으로 180° 돌렸을 때 겹치는 점을 <b>대응점</b>, 겹치는 변을 <b>대응변</b>, 겹치는 각을 <b>대응각</b>이라고 해요. 글자를 눌러 답을 입력해요.', 'guide');
+        Correspond(c.area(), Object.assign({}, base, {
+          prompts: [[0], [1], [2]].map(g => ({ type: 'point', given: g }))
+            .concat([[0, 1], [1, 2], [2, 3]].map(g => ({ type: 'side', given: g })))
+            .concat([[0, 1, 2], [1, 2, 3], [2, 3, 4]].map(g => ({ type: 'angle', given: g }))),
+          linkPoints: true,
+          hintText: () => '점 ㅇ을 중심으로 180° 돌리면 어디로 갈지 생각해 보세요. <b>180° 돌려 확인</b>을 눌러 볼 수도 있어요.',
+          tools: (st, ctl) => ctl.appendChild(motionButton(st, hexP, figs[0].labels, 'rot', [0, 0], null, '↻ 180° 돌려 확인')),
           onDone: () => { conceptCard(c.box, '점대칭도형의 대응점, 대응변, 대응각', '대칭의 중심을 중심으로 180° 돌렸을 때 겹치는 점을 <b>대응점</b>, 겹치는 변을 <b>대응변</b>, 겹치는 각을 <b>대응각</b>이라고 합니다.'); c.done(); },
         }));
-        spin(cor, c);
       },
     ]);
   };
@@ -827,12 +807,11 @@
     const base = { view: { x0: -4.6, y0: -3.2, w: 9.2, h: 6.4 }, figs, map: [[0, 3], [1, 4], [2, 5]], center: { p: [0, 0], label: 'ㅇ' }, measure: true };
     UI.runSteps(root, [
       (c) => {
-        c.say('점대칭도형 작품에서 대응변을 찾아 길이를 재어 비교해요.', 'guide');
-        Correspond(c.area(), Object.assign({}, base, { prompts: [[0, 1], [1, 2], [2, 3]].map(g => ({ type: 'side', given: g })), onDone: c.done }));
-      },
-      (c) => {
-        c.say('대응각을 찾아 크기를 비교해요.', 'guide');
-        Correspond(c.area(), Object.assign({}, base, { prompts: [[0, 1, 2], [1, 2, 3], [2, 3, 4]].map(g => ({ type: 'angle', given: g })), onDone: c.done }));
+        c.say('점대칭도형 작품에서 대응변과 대응각을 입력하면 <b>디지털 자와 각도기</b>가 길이와 크기를 재어 줘요. 재어 본 값을 비교해 보세요.', 'guide');
+        Correspond(c.area(), Object.assign({}, base, {
+          prompts: [[0, 1], [1, 2], [2, 3]].map(g => ({ type: 'side', given: g })).concat([[0, 1, 2], [1, 2, 3], [2, 3, 4]].map(g => ({ type: 'angle', given: g }))),
+          onDone: c.done,
+        }));
       },
       (c) => fillBlank(c.box, { parts: ['점대칭도형은 ', { ans: '대응변' }, '의 길이와 ', { ans: '대응각' }, '의 크기가 각각 같습니다.'], chips: ['대응변', '대응각', '대칭의 중심', '대칭축'], onDone: c.done }),
     ]);
@@ -916,7 +895,7 @@
         const st = new Stage(c.area(), { x0: -5.4, y0: -3.6, w: 10.8, h: 7.2 });
         st.poly(P1, { class: 'shape fill-a' }); st.vertexLabels(P1, L, { off: 0.5 });
         st.circle([0, 0], 0.12, { class: 'center-dot' }, 'ui'); st.text([0.4, 0.35], 'ㅇ', { class: 'vlabel center-lbl' });
-        const lab = (i, t, cls) => { const a = P1[i], b = P1[(i + 1) % 6], m = V.mid(a, b), out = V.norm(V.sub(m, V.foot([0, 0], a, b))); st.text(V.add(m, V.mul(out, 0.6)), t, { class: 'measure ' + (cls || '') }); };
+        const lab = (i, t, cls) => st.dimArc(P1[i], P1[(i + 1) % 6], t, [0, 0], { cls });
         lab(0, '14 cm'); lab(5, '8 cm');
         st.angleArc(P1, 0, 0.5, {}); st.text(V.add(P1[0], V.mul(Poly.inward(P1, 0), 1.05)), angG + '°', { class: 'measure small' });
         let n = 0; const fin = () => { if (++n === 2) c.done(); };
@@ -928,8 +907,8 @@
         st.poly(hexP, { class: 'shape fill-a' }); st.vertexLabels(hexP, L, { off: 0.5 });
         st.circle([0, 0], 0.12, { class: 'center-dot' }, 'ui'); st.text([0.3, 0.45], 'ㅇ', { class: 'vlabel center-lbl' });
         st.line(hexP[1], hexP[4], { class: 'pair-link solid' }, 'help'); st.line(hexP[2], hexP[5], { class: 'pair-link solid' }, 'help');
-        st.text(V.add(V.mid(hexP[1], hexP[4]), [1.6, 0.55]), '26 cm', { class: 'measure' });
-        st.text(V.add(V.mid(hexP[5], [0, 0]), [0.75, 0.15]), '10 cm', { class: 'measure' });
+        st.dimArc(hexP[1], hexP[4], '26 cm', [0, 3]);
+        st.dimArc(hexP[5], [0, 0], '10 cm', [-3, 0]);
         let n = 0; const fin = () => { if (++n === 2) { conceptCard(c.box, '점대칭도형의 성질', '• 대응변의 길이와 대응각의 크기가 각각 같아요.<br>• 대칭의 중심은 대응점끼리 이은 선분을 <b>똑같이 둘로</b> 나눠요.<br>• 각각의 대응점에서 대칭의 중심까지의 거리는 같아요.'); c.done(); } };
         numQuestion(c.box, { q: '선분 ㄴㅁ이 26 cm일 때, <b>선분 ㄴㅇ</b>의 길이는 몇 cm일까요?', answer: 13, unit: 'cm', hint: '대칭의 중심은 대응점끼리 이은 선분을 똑같이 둘로 나눠요.', onDone: fin });
         numQuestion(c.box, { q: '선분 ㅂㅇ이 10 cm일 때, <b>선분 ㄷㅂ</b>의 길이는 몇 cm일까요?', answer: 20, unit: 'cm', hint: '선분 ㄷㅇ과 선분 ㅂㅇ의 길이는 같아요.', onDone: fin });
@@ -1019,10 +998,8 @@
       story: '다윤이와 승현이가 미술관 문을 열자 바닥에 모양과 크기가 같은 화살표가 그려져 있어요. 모양과 크기가 같은 것을 어떻게 알 수 있을까요?',
       focus: ['무늬 찾기, 종이 겹쳐 오리기, 도장 찍기, 데칼코마니 등 구체적인 조작 활동을 통해 도형의 합동의 의미를 이해하게 한다.', '포개었을 때 완전히 겹치는 것이 <b>뒤집어 포개어 겹치는 것도 포함</b>한다는 것을 인식하고 있는지 평가한다.', '직관적으로 예상한 뒤 투명 종이로 직접 포개어 확인하게 하고, 이후 모눈의 칸 수를 세어 합동인 도형을 찾게 한다.'],
       acts: [
-        { tb: '활동 1', title: '모양과 크기가 같은 도형 만들기', type: 'paper', why: '색종이 두 장을 겹쳐 직접 오리고 비교하는 손 조작이 합동의 의미를 이해하는 핵심이에요.' },
-        { tb: '활동 2', id: 'l2a', title: '완전히 겹치는 도형 찾기 (디지털 투명 종이)', type: 'app', why: '예상한 뒤 투명 종이를 끌고·돌리고·뒤집어 여러 도형에 바로 포개어 볼 수 있어요.' },
-        { tb: '활동 3', id: 'l2b', title: '모눈에서 서로 합동인 도형 찾기', type: 'app', why: '짝을 지으면 바로 확인되고, 칸 수 보기로 맞춤형 도움을 받을 수 있어요.' },
-        { tb: '창의', title: '우리 주변에서 합동인 도형으로 만든 무늬 찾기', type: 'paper', why: '교실과 생활 속 실물(필통, 포장지 등)을 직접 관찰하고 친구와 이야기하는 활동이에요.' },
+        { id: 'l2a', title: '완전히 겹치는 도형 찾기 (디지털 투명 종이)', type: 'app', why: '예상한 뒤 투명 종이를 끌고·돌리고·뒤집어 여러 도형에 바로 포개어 볼 수 있어요.' },
+        { id: 'l2b', title: '모눈에서 서로 합동인 도형 찾기', type: 'app', why: '짝을 지으면 바로 확인되고, 칸 수 보기로 맞춤형 도움을 받을 수 있어요.' },
       ],
       game: 'g2',
     },
@@ -1031,10 +1008,10 @@
       story: '판화 체험장에서 판에 새긴 도형과 찍어 낸 도형을 살펴봐요. 어느 곳이 겹칠까요?',
       focus: ['서로 합동인 두 도형을 <b>직접 포개어 보는 조작 활동</b>을 충분히 하여 겹치는 꼭짓점, 변, 각을 차례대로 찾게 한다.', '대응변의 길이와 대응각의 크기를 비교하여 합동인 도형의 성질을 이해하게 한다.', '합동인 도형의 성질을 활용하여 대응변의 길이와 대응각의 크기를 구할 수 있는지 평가한다.'],
       acts: [
-        { tb: '활동 1', id: 'l3a', title: '포개었을 때 겹치는 점·변·각 찾기', type: 'app', why: '종이 도형을 뜯어 포갤 필요 없이, 포개기 애니메이션으로 몇 번이든 겹쳐 보며 대응점·대응변·대응각을 찾을 수 있어요.' },
-        { tb: '활동 2', id: 'l3b', title: '대응변의 길이와 대응각의 크기 비교하기', type: 'app', why: '디지털 자·각도기로 재어 비교 결과를 표로 모아 성질을 스스로 정리해요.' },
-        { tb: '활동 3', id: 'l3c', title: '합동인 도형의 성질로 길이와 각 구하기', type: 'app', why: '답을 바로 확인하고 대응변·대응각을 찾도록 힌트를 받아요.' },
-        { tb: '활동 4', id: 'l3d', title: '퍼즐 조각에서 대응점·대응변·대응각 찾기', type: 'app', why: '돌려서 포개야 하는 경우를 애니메이션으로 확인할 수 있어요.' },
+        { id: 'l3a', title: '포개었을 때 겹치는 점·변·각 찾기', type: 'app', why: '종이 도형을 뜯어 포갤 필요 없이, 포개기 애니메이션으로 몇 번이든 겹쳐 보며 대응점·대응변·대응각을 찾을 수 있어요.' },
+        { id: 'l3b', title: '대응변의 길이와 대응각의 크기 비교하기', type: 'app', why: '디지털 자·각도기로 재어 비교 결과를 표로 모아 성질을 스스로 정리해요.' },
+        { id: 'l3c', title: '합동인 도형의 성질로 길이와 각 구하기', type: 'app', why: '답을 바로 확인하고 대응변·대응각을 찾도록 힌트를 받아요.' },
+        { id: 'l3d', title: '퍼즐 조각에서 대응점·대응변·대응각 찾기', type: 'app', why: '돌려서 포개야 하는 경우를 애니메이션으로 확인할 수 있어요.' },
       ],
       game: 'g3',
     },
@@ -1043,11 +1020,8 @@
       story: '미술관의 색유리 창문 무늬가 햇빛을 받아 반짝여요. 무늬에는 어떤 특징이 있을까요?',
       focus: ['도형을 <b>직접 반으로 접어서</b> 완전히 겹치는지 알아보기, 데칼코마니 등 구체적인 조작 활동을 통해 선대칭도형의 의미를 이해하게 한다.', '여러 방향으로 접어 보며 대칭축을 이해하고, 도형의 모양에 따라 <b>대칭축은 2개 이상</b>일 수 있음을 알게 한다.', '학생들은 세로·가로로만 접는 경우를 생각하기 쉬우므로 여러 방향을 생각하도록 유도한다.'],
       acts: [
-        { tb: '활동 1', title: '색유리 창문 무늬를 선을 따라 접어 보기', type: 'paper', why: '준비물 6을 직접 접어 겹쳐 보는 경험이 선대칭의 의미를 몸으로 느끼게 해요.' },
-        { tb: '활동 2', title: '반으로 접었을 때 완전히 겹치는 도형 알아보기', type: 'paper', why: '여러 방향으로 직접 접어 보는 조작 활동 자체가 중요해서 종이로 해요.' },
-        { tb: '활동 3', id: 'l4a', title: '선대칭도형을 찾고 대칭축 긋기', type: 'app', why: '선을 그으면 바로 판단해 주고, 틀린 선은 접었을 때의 모양을 보여 주어 여러 개의 대칭축을 스스로 찾게 해요.' },
-        { tb: '활동 4', id: 'l4b', title: '선대칭도형에서 대응점·대응변·대응각 찾기', type: 'app', why: '눌러서 바로 확인하고, 접어 확인하기로 겹치는 곳을 볼 수 있어요.' },
-        { tb: '창의', title: '우리 주변에서 선대칭도형 모양 찾기', type: 'paper', why: '나비, 낙엽, 표지판 등 실물을 관찰하고 이야기하는 활동이에요.' },
+        { id: 'l4a', title: '선대칭도형을 찾고 대칭축 긋기', type: 'app', why: '선을 그으면 바로 판단해 주고, 틀린 선은 접었을 때의 모양을 보여 주어 여러 개의 대칭축을 스스로 찾게 해요.' },
+        { id: 'l4b', title: '선대칭도형에서 대응점·대응변·대응각 찾기', type: 'app', why: '눌러서 바로 확인하고, 접어 확인하기로 겹치는 곳을 볼 수 있어요.' },
       ],
       game: 'g4',
     },
@@ -1056,12 +1030,12 @@
       story: '다윤이와 승현이가 색종이를 반으로 접어 오려서 선대칭도형 작품을 만들었어요. 대응변과 대응각에는 어떤 성질이 있을까요?',
       focus: ['대응변의 길이·대응각의 크기를 재어 보고, 모눈을 이용해 대응점끼리 이은 선분과 대칭축의 관계를 살펴보게 한다.', '그리는 방법을 단계적으로 암기하지 않고 <b>스스로 유추</b>해 보도록 충분한 시간을 주고, 친구와 방법을 비교하게 한다.', '대칭축이 모눈과 다른 방향일 때는 먼저 각 점에서 대칭축에 <b>수선</b>을 그어야 함을 지도한다.', '모눈종이, 점판, 공학 도구 등을 이용하여 선대칭도형을 쉽게 그릴 수 있게 한다.'],
       acts: [
-        { tb: '활동 1', id: 'l5a', title: '대응변의 길이와 대응각의 크기 알아보기', type: 'app', why: '대응변·대응각을 찾으면 디지털 자·각도기로 바로 비교해요.' },
-        { tb: '활동 2', id: 'l5b', title: '대응점끼리 이은 선분과 대칭축의 관계', type: 'app', why: '꼭짓점을 끌어 도형을 바꾸어도 수직·같은 거리가 유지되는 것을 여러 번 확인할 수 있어요.' },
-        { tb: '활동 3', id: 'l5c', title: '선대칭도형의 성질로 길이와 각 구하기', type: 'app', why: '답을 바로 확인하고 성질을 다시 떠올리도록 힌트를 받아요.' },
-        { tb: '활동 4', id: 'l5d', title: '선대칭도형을 완성하는 방법 알아보기', type: 'app', why: '성질을 먼저 생각하고, 수선 보조선을 그어 대응점을 찍은 뒤 방법을 스스로 정리해요.' },
-        { tb: '활동 5', id: 'l5e', title: '선대칭도형 완성하기', type: 'app', why: '틀린 점에 맞춤형 피드백을 주고, 비스듬한 대칭축 문제와 새 문제를 계속 풀 수 있어요.' },
-        { tb: '창의', id: 'l5f', title: '도형판에 나만의 선대칭도형 만들기', type: 'app', why: '도형판과 고무줄 없이 패드를 친구와 주고받으며 만들고 완성하고 확인해요.' },
+        { id: 'l5a', title: '대응변의 길이와 대응각의 크기 알아보기', type: 'app', why: '대응변·대응각을 찾으면 디지털 자·각도기로 바로 비교해요.' },
+        { id: 'l5b', title: '대응점끼리 이은 선분과 대칭축의 관계', type: 'app', why: '꼭짓점을 끌어 도형을 바꾸어도 수직·같은 거리가 유지되는 것을 여러 번 확인할 수 있어요.' },
+        { id: 'l5c', title: '선대칭도형의 성질로 길이와 각 구하기', type: 'app', why: '답을 바로 확인하고 성질을 다시 떠올리도록 힌트를 받아요.' },
+        { id: 'l5d', title: '선대칭도형을 완성하는 방법 알아보기', type: 'app', why: '성질을 먼저 생각하고, 수선 보조선을 그어 대응점을 찍은 뒤 방법을 스스로 정리해요.' },
+        { id: 'l5e', title: '선대칭도형 완성하기', type: 'app', why: '틀린 점에 맞춤형 피드백을 주고, 비스듬한 대칭축 문제와 새 문제를 계속 풀 수 있어요.' },
+        { id: 'l5f', title: '도형판에 나만의 선대칭도형 만들기', type: 'app', why: '도형판과 고무줄 없이 패드를 친구와 주고받으며 만들고 완성하고 확인해요.' },
       ],
       game: 'g5',
     },
@@ -1070,11 +1044,8 @@
       story: '미술관 천장에 글자 작품들이 가득해요. 글자 작품 ‘ㄹ’에는 다른 작품과 다른 특징이 있대요.',
       focus: ['도형을 어떤 점을 중심으로 180° 돌렸을 때 처음 도형과 완전히 겹치는지 알아보는 <b>구체적인 조작 활동</b>을 통해 점대칭도형의 의미를 이해하게 한다.', '돌리기 전에 90°, 180° 돌린 모양을 <b>예상</b>하는 기회를 준다.', '가운데 점이 있으면 점대칭도형이라고 생각하는 오개념에 유의한다.'],
       acts: [
-        { tb: '활동 1', title: '글자 작품을 180° 돌려 보기', type: 'paper', why: '준비물 7의 글자를 직접 포개고 돌려 보는 경험이 점대칭의 의미를 이해하는 출발점이에요.' },
-        { tb: '활동 2', title: '몇 도 돌리면 처음 도형과 겹치는지 알아보기', type: 'paper', why: '준비물 7로 90°, 180°를 직접 돌려 보며 비교하는 조작 활동이 중요해요.' },
-        { tb: '활동 3', id: 'l7a', title: '점대칭도형 찾기 (예상하고 확인하기)', type: 'app', why: '예상한 뒤 버튼으로 180° 회전을 정확히 보여 주어 “점이 있으면 점대칭” 오개념을 바로잡아요.' },
-        { tb: '활동 4', id: 'l7b', title: '점대칭도형에서 대응점·대응변·대응각 찾기', type: 'app', why: '180° 돌려 확인하기로 겹치는 곳을 바로 볼 수 있어요.' },
-        { tb: '창의', title: '우리 주변에서 점대칭도형 모양 찾기', type: 'paper', why: '태극 문양, 다식, 바람개비 등 실물을 관찰하고 이야기하는 활동이에요.' },
+        { id: 'l7a', title: '점대칭도형 찾기 (예상하고 확인하기)', type: 'app', why: '예상한 뒤 버튼으로 180° 회전을 정확히 보여 주어 “점이 있으면 점대칭” 오개념을 바로잡아요.' },
+        { id: 'l7b', title: '점대칭도형에서 대응점·대응변·대응각 찾기', type: 'app', why: '180° 돌려 확인하기로 겹치는 곳을 바로 볼 수 있어요.' },
       ],
       game: 'g7',
     },
@@ -1083,32 +1054,20 @@
       story: '복도에 점대칭도형 작품들이 전시되어 있어요. 대응변과 대응각, 대칭의 중심에는 어떤 성질이 있을까요?',
       focus: ['대응변의 길이와 대응각의 크기를 측정하고, 모눈을 이용하여 대칭의 중심과 대응점끼리 이은 선분의 관계를 살펴보게 한다.', '5학년 수준을 고려하여 대응점이 <b>꼭짓점인 경우만</b> 다룬다.', '점대칭도형을 어떻게 완성할지 예상해 보고 성질을 이용해 직접 그려 보며 방법을 이해하게 한다.'],
       acts: [
-        { tb: '활동 1', id: 'l8a', title: '대응변의 길이와 대응각의 크기 알아보기', type: 'app', why: '대응변·대응각을 찾으면 디지털 자·각도기로 바로 비교해요.' },
-        { tb: '활동 2', id: 'l8b', title: '대응점끼리 이어 대칭의 중심 찾기', type: 'app', why: '선분을 깨끗하게 긋고, 만나는 점을 180° 돌려 확인하고, 꼭짓점을 끌어 거리 관계를 탐구해요.' },
-        { tb: '활동 3', id: 'l8c', title: '점대칭도형의 성질로 길이와 각 구하기', type: 'app', why: '답을 바로 확인하고 성질을 다시 떠올리도록 힌트를 받아요.' },
-        { tb: '활동 4', id: 'l8d', title: '점대칭도형을 완성하는 방법 알아보기', type: 'app', why: '성질을 먼저 생각하고, 중심을 지나는 보조선을 그어 대응점을 찾은 뒤 방법을 정리해요.' },
-        { tb: '활동 5', id: 'l8e', title: '점대칭도형 완성하기', type: 'app', why: '틀린 점에 “몇 칸 이동했는지” 맞춤형 피드백을 주고, 새 문제를 계속 풀 수 있어요.' },
-        { tb: '창의', title: '점대칭도형을 완성해 그림 그리기', type: 'paper', why: '색연필로 자유롭게 꾸미고 그리는 표현 활동은 종이에서 하는 것이 좋아요.' },
+        { id: 'l8a', title: '대응변의 길이와 대응각의 크기 알아보기', type: 'app', why: '대응변·대응각을 찾으면 디지털 자·각도기로 바로 비교해요.' },
+        { id: 'l8b', title: '대응점끼리 이어 대칭의 중심 찾기', type: 'app', why: '선분을 깨끗하게 긋고, 만나는 점을 180° 돌려 확인하고, 꼭짓점을 끌어 거리 관계를 탐구해요.' },
+        { id: 'l8c', title: '점대칭도형의 성질로 길이와 각 구하기', type: 'app', why: '답을 바로 확인하고 성질을 다시 떠올리도록 힌트를 받아요.' },
+        { id: 'l8d', title: '점대칭도형을 완성하는 방법 알아보기', type: 'app', why: '성질을 먼저 생각하고, 중심을 지나는 보조선을 그어 대응점을 찾은 뒤 방법을 정리해요.' },
+        { id: 'l8e', title: '점대칭도형 완성하기', type: 'app', why: '틀린 점에 “몇 칸 이동했는지” 맞춤형 피드백을 주고, 새 문제를 계속 풀 수 있어요.' },
       ],
       game: 'g9',
-    },
-    {
-      id: 'l10', no: '10차시', title: '생각을 더하다 · 자연 속 선대칭도형', pages: '수학 76~77쪽', emoji: '🦋', room: '수학+미술',
-      story: '알지오매스 키즈로 자연 속 선대칭도형을 그려 봐요.', focus: ['이미 공학 도구(알지오매스 키즈)를 사용하는 활동이므로 교과서 안내대로 진행해요.'],
-      acts: [{ tb: '활동 1~2', title: '알지오매스 키즈로 선대칭도형 그리기', type: 'tool', why: '교과서 QR의 알지오매스 키즈를 그대로 이용해요.' }],
-    },
-    {
-      id: 'l11', no: '11차시', title: '놀이를 더하다 · 카드를 없애는 완벽한 방법', pages: '수학 78~79쪽', emoji: '🃏', room: '놀이 공간',
-      story: '친구들과 대칭 카드 놀이를 해요.', focus: ['3명이 실물 카드(준비물 8)를 들고 얼굴을 마주 보며 의사소통하는 놀이라서 교실에서 직접 해요.'],
-      acts: [{ tb: '놀이', title: '카드를 없애는 완벽한 방법', type: 'paper', why: '실물 카드를 주고받으며 친구와 소통하는 모둠 놀이예요.' }],
     },
     {
       id: 'l12', no: '12차시', title: '공부한 내용을 확인해요', pages: '수학 80~82쪽 · 수학익힘 52쪽', emoji: '🚦', room: '교통안전 체험관',
       story: '단원에서 배운 내용을 정리하고, 교통안전 체험관의 표지판을 분류해 봐요.',
       focus: ['합동, 선대칭도형, 점대칭도형의 개념과 성질을 종합하여 정리하게 한다.'],
       acts: [
-        { tb: '확인하고 정리해요', id: 'l12a', title: '용어 정리하기', type: 'app', why: '빈칸을 채우며 핵심 용어를 정리해요.' },
-        { tb: '내 힘으로 풀어요', title: '단원 평가 문제 풀기', type: 'paper', why: '교과서에 직접 풀이 과정을 쓰며 스스로 점검해요. (완성하기·분류하기 연습은 익히기 게임에서 더 할 수 있어요)' },
+        { id: 'l12a', title: '용어 정리하기', type: 'app', why: '빈칸을 채우며 핵심 용어를 정리해요.' },
       ],
       game: 'g12',
     },
