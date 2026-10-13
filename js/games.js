@@ -292,11 +292,12 @@
           tap: (p) => { const t = pick(p); if (t) { select(t); toast('끌어서 옮기고, 두 손가락으로 돌려요. 뒤집으려면 ⇋ 뒤집기를 눌러요.'); } },
           dragStart: (p) => {
             const t = pick(p);
-            if (!t) return;
+            if (!t) return false;
             drag = { t, off: V.sub(t.pos, p) };
             select(t);
             st.L('over').appendChild(t.node); // 맨 위로
             t.node.classList.add('lifted');
+            return true;
           },
           dragMove: (p) => { if (drag) { drag.t.pos = V.add(p, drag.off); place(drag.t); } },
           dragCancel: () => { if (drag) { drag.t.node.classList.remove('lifted'); goHome(drag.t); drag = null; } },
@@ -933,7 +934,7 @@
         const back = () => { const from = pos.slice(); animate(300, t => { pos = V.lerp(from, HOME, t); put(); }); };
         st.on({
           tap: (p) => { if (!done && V.dist(p, pos) < 2.6) toast('표지판을 손가락으로 끌어서 보관함에 넣어 보세요.'); },
-          dragStart: (p) => { if (!done && V.dist(p, pos) < 3) { drag = V.sub(pos, p); sign.classList.add('lifted'); } },
+          dragStart: (p) => { if (!done && V.dist(p, pos) < 3) { drag = V.sub(pos, p); sign.classList.add('lifted'); return true; } return false; },
           dragMove: (p) => { if (drag) { pos = V.add(p, drag); put(); } },
           dragCancel: () => { if (drag) { drag = null; sign.classList.remove('lifted'); back(); } },
           // 두 손가락으로 표지판을 돌려 볼 수 있어요 (180° 돌려 보기)

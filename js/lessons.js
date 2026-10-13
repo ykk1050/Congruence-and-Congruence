@@ -99,7 +99,7 @@
       info.innerHTML = rows.join('<br>');
     }
     stage.on({
-      dragStart: (p) => { active = Hit.nearestVertex(P, p, Math.max(0.6, 36 * stage.unitPerPx())); if (!cfg.drag.includes(active)) active = -1; },
+      dragStart: (p) => { active = Hit.nearestVertex(P, p, Math.max(0.6, 36 * stage.unitPerPx())); if (!cfg.drag.includes(active)) active = -1; return active >= 0; },
       dragMove: (p) => {
         if (active < 0) return;
         const q = [Math.round(p[0]), Math.round(p[1])];
@@ -211,7 +211,7 @@
         const fb = el('div', { class: 'fb' });
         let g0 = null;
         st.on({
-          dragStart: (p) => { if (Poly.pointIn(rel.map(q => V.add(q, pos)), p) || V.dist(p, pos) < 1.6) drag = V.sub(pos, p); },
+          dragStart: (p) => { if (Poly.pointIn(rel.map(q => V.add(q, pos)), p) || V.dist(p, pos) < 1.6) { drag = V.sub(pos, p); return true; } return false; },
           dragMove: (p) => { if (drag) { pos = V.add(p, drag); upd(); } },
           dragEnd: () => { if (!drag) return; drag = null; check(); },
           // 두 손가락으로 투명 종이를 돌리면서 옮기기

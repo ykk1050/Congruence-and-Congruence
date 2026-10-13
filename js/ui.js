@@ -303,6 +303,7 @@
           const P = S.base.map(q => mvPt(q));
           dragOff = (Poly.pointIn(P, p) || V.dist(p, S.pos) < 1.4) ? V.sub(S.pos, p) : null;
           if (dragOff) { S.snapped = false; }
+          return !!dragOff;
         },
         dragMove: (p) => { if (dragOff) { S.pos = V.add(p, dragOff); mvApply(); } },
         dragEnd: () => { if (dragOff) { dragOff = null; snapCheck(); } },
@@ -569,7 +570,14 @@
     }
 
     stage.on({
-      dragStart: (p) => { if (finished || busy) return; temp = stage.line(p, p, { class: 'axis temp' }, 'top'); },
+      dragStart: (p) => {
+        // 도형 근처에서 시작한 선만 대칭축 긋기로 쓰고, 먼 바깥에서 밀면 페이지 스크롤
+        if (finished || busy) return false;
+        const m = size * 0.2;
+        if (p[0] < bb.x0 - m || p[0] > bb.x1 + m || p[1] < bb.y0 - m || p[1] > bb.y1 + m) return false;
+        temp = stage.line(p, p, { class: 'axis temp' }, 'top');
+        return true;
+      },
       dragMove: (p) => { if (temp) { temp.setAttribute('x2', p[0]); temp.setAttribute('y2', p[1]); } },
       dragCancel: () => { if (temp) { temp.remove(); temp = null; } },
       dragEnd: (p, s) => {

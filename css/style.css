@@ -272,7 +272,7 @@ b { font-weight: 700; }
 .glass { background: linear-gradient(135deg, #e3f2fd, #fce4ec); border-radius: 18px; padding: 4px; }
 
 /* ---------- SVG 무대 ---------- */
-.stage { display: block; width: 100%; height: auto; max-height: 50vh; touch-action: none; user-select: none; -webkit-user-select: none; background: #fff; border-radius: 14px; }
+.stage { display: block; width: 100%; height: auto; max-height: 50vh; touch-action: pan-y; user-select: none; -webkit-user-select: none; background: #fff; border-radius: 14px; }
 .stage.tappable { cursor: pointer; }
 .card-stage { max-height: none; }
 .axis-stage { max-height: 46vh; }

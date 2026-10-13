@@ -40,13 +40,13 @@
        두 손가락: gestureStart(a, b) / gestureMove({ rot, center, center0 }) / gestureEnd()
        (gestureStart 처리기가 있는 무대에서만 두 손가락 회전을 쓴다) */
     _bindPointer() {
-      let start = null, dragging = false, id = null, id2 = null, mode = null, g0 = null;
+      let start = null, dragging = false, scrolling = false, lastY = 0, id = null, id2 = null, mode = null, g0 = null;
       const pts = new Map(), seen = new Map();
       const H = this.handlers;
-      const reset = () => { id = null; id2 = null; start = null; dragging = false; mode = null; g0 = null; pts.clear(); };
+      const reset = () => { id = null; id2 = null; start = null; dragging = false; scrolling = false; mode = null; g0 = null; pts.clear(); };
       // 진행 중이던 입력을 취소(손바닥 터치, 포인터 종료 신호 유실 대비)
       const cancel = () => {
-        if (mode === 'single' && dragging && H.dragCancel) H.dragCancel();
+        if (mode === 'single' && dragging && !scrolling && H.dragCancel) H.dragCancel();
         if (mode === 'gesture' && H.gestureEnd) H.gestureEnd(true);
         reset();
       };
@@ -56,7 +56,7 @@
         const p = this.pt(e);
         seen.set(e.pointerId, Date.now());
         // 두 번째 손가락: 첫 손가락이 아직 화면에 있으면 회전 제스처 시작
-        if (mode === 'single' && e.pointerId !== id && H.gestureStart && held(id)) {
+        if (mode === 'single' && e.pointerId !== id && H.gestureStart && held(id) && !scrolling) {
           id2 = e.pointerId; pts.set(id2, p);
           try { this.svg.setPointerCapture(id2); } catch (err) { /* noop */ }
           const a = pts.get(id) || start;
@@ -69,7 +69,7 @@
         // 이전 입력이 끝나지 않은 채 남아 있으면 그 입력을 버리고 새로 시작한다.
         // (예전에는 여기서 새 입력을 무시해 화면이 ‘잠기는’ 문제가 있었음)
         if (mode) cancel();
-        id = e.pointerId; start = p; dragging = false; mode = 'single'; pts.set(id, p);
+        id = e.pointerId; start = p; dragging = false; scrolling = false; lastY = e.clientY; mode = 'single'; pts.set(id, p);
         try { this.svg.setPointerCapture(id); } catch (err) { /* noop */ }
         if (H.down) H.down(start, e);
       });
@@ -87,8 +87,11 @@
         if (mode !== 'single' || e.pointerId !== id) return;
         if (!dragging && V.dist(p, start) / this.unitPerPx() > 8) {
           dragging = true;
-          if (H.dragStart) H.dragStart(start, e);
+          // 끌기 처리기가 아무것도 잡지 않으면(false) 그 손가락 움직임은 페이지 스크롤로 쓴다
+          scrolling = !(H.dragStart && H.dragStart(start, e) !== false);
         }
+        if (scrolling) { window.scrollBy(0, lastY - e.clientY); lastY = e.clientY; return; }
+        lastY = e.clientY;
         if (dragging && H.dragMove) H.dragMove(p, start, e);
       });
       const up = (e) => {
@@ -100,7 +103,7 @@
         if (mode === 'wait') { pts.delete(e.pointerId); if (!pts.size) reset(); return; }
         if (e.pointerId !== id) return;
         const p = this.pt(e);
-        if (dragging) { if (H.dragEnd) H.dragEnd(p, start, e); }
+        if (dragging) { if (!scrolling && H.dragEnd) H.dragEnd(p, start, e); }
         else if (H.tap) H.tap(start, e);
         reset();
       };
@@ -133,7 +136,12 @@
       Object.entries({ x: t[0] - w / 2 - px, y: t[1] - hh / 2 - py, width: w + 2 * px, height: hh + 2 * py }).forEach(([k, v]) => bgR.setAttribute(k, v));
       return g;
     }
-    on(h) { Object.assign(this.handlers, h); return this; }
+    on(h) {
+      Object.assign(this.handlers, h);
+      // 끌거나 돌리는 조작이 없는 무대는 브라우저의 위아래 스크롤을 그대로 쓴다(누르기는 그대로 됨)
+      this.svg.style.touchAction = (this.handlers.dragStart || this.handlers.gestureStart) ? 'none' : 'pan-y';
+      return this;
+    }
 
     /* ----- 그리기 ----- */
     L(name) { return this.layers[name || 'main']; }
