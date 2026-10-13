@@ -495,3 +495,7 @@ b { font-weight: 700; }
 .ts-card-lbl { font-family: var(--font-title); font-size: .7em; fill: #2b8a3e; }
 .mu-tile.sel .mu-tile-edge { stroke: #1c7ed6; stroke-width: 4px; }
 .tile-tools { justify-content: center; }
+.dim-bg { fill: #fff; stroke: #d0e3fb; stroke-width: 1px; vector-effect: non-scaling-stroke; }
+.dimg.ask .dim-bg { stroke: #ffc9d4; }
+.dim-text { paint-order: normal; stroke: none; }
+.fold-gone { fill: #fff; stroke: #ced4da; stroke-width: 2px; vector-effect: non-scaling-stroke; stroke-dasharray: 5 4; }

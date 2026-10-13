@@ -486,6 +486,33 @@
     return out;
   }
   const areaOf = (P) => P.length < 3 ? 0 : Math.abs(Poly.area2(P)) / 2;
+  /** 종이 접기 모션: 다각형 P를 직선 a-b로 접는다.
+      접혀 올라가는 쪽의 원래 자리는 종이가 없어지므로 흰색으로 비우고, 접힌 조각이 반대쪽으로 넘어간다.
+      opt.moveSide: 접혀 넘어갈 쪽에 있는 점(없으면 넓이가 작은 쪽) / opt.good: 완전히 겹치는 접기인지
+      opt.labels: [{p, text}] 접히는 쪽 꼭짓점 이름도 함께 넘어간다 */
+  function foldAnim(stage, P, a, b, opt = {}) {
+    const h1 = clipHalf(P, a, b, 1), h2 = clipHalf(P, a, b, -1);
+    let move, stay;
+    if (opt.moveSide) {
+      const sgn = Math.sign(V.cross(V.sub(b, a), V.sub(opt.moveSide, a)));
+      move = sgn > 0 ? h1 : h2; stay = sgn > 0 ? h2 : h1;
+    } else { const big = areaOf(h1) >= areaOf(h2); stay = big ? h1 : h2; move = big ? h2 : h1; }
+    const flat = (p, t) => { const ft = V.foot(p, a, b); return V.add(ft, V.mul(V.sub(p, ft), 1 - 2 * t)); };
+    const nodes = [];
+    nodes.push(stage.poly(move, { class: 'fold-gone' }, 'top'));             // 종이가 떠난 자리(흰색)
+    if (opt.showStay) nodes.push(stage.poly(stay, { class: 'shape fold-stay' }, 'top'));
+    const flap = stage.poly(move, { class: 'shape fold-move' + (opt.good ? ' good' : '') }, 'top');
+    nodes.push(flap);
+    const sideMove = (p) => Math.sign(V.cross(V.sub(b, a), V.sub(p, a))) === Math.sign(V.cross(V.sub(b, a), V.sub(Poly.centroid(move.length ? move : P), a)));
+    const lbls = (opt.labels || []).filter(l => sideMove(l.p) && V.distToLine(l.p, a, b) > 1e-6)
+      .map(l => ({ p: l.p, node: stage.text(l.p, l.text, { class: 'vlabel ghost-lbl' }, 'top') }));
+    lbls.forEach(l => nodes.push(l.node));
+    animate(opt.ms || 1000, t => {
+      stage.setPoints(flap, move.map(p => flat(p, t)));
+      lbls.forEach(l => { const q = flat(l.p, t); l.node.setAttribute('x', q[0]); l.node.setAttribute('y', q[1]); });
+    }, () => setTimeout(() => { nodes.forEach(n => n.remove()); opt.done && opt.done(); }, opt.hold || 1500));
+    return nodes;
+  }
 
   function AxisDraw(box, cfg) {
     const f = cfg.fig, mode = cfg.preview || 'fold';
@@ -524,14 +551,14 @@
       const stay = A1 >= A2 ? h1 : h2, move = A1 >= A2 ? h2 : h1;
       const nodes = [];
       busy = true;
-      main.style.opacity = 0.18;
-      nodes.push(stage.poly(stay, { class: 'shape fold-stay' }, 'top'));
+      if (mode !== 'fold') main.style.opacity = 0.18;
+      if (mode !== 'fold') nodes.push(stage.poly(stay, { class: 'shape fold-stay' }, 'top'));
       nodes.push(stage.fullLine(a, b, { class: 'axis ' + (good ? 'found' : 'bad') + (mode === 'mirror' ? ' mirror' : '') }, 'top', 0.05));
       const flat = (p, t) => { const ft = V.foot(p, a, b); return V.add(ft, V.mul(V.sub(p, ft), 1 - 2 * t)); };
       if (mode === 'fold') {
-        const mvP = stage.poly(move, { class: 'shape fold-move' + (good ? ' good' : '') }, 'top');
-        nodes.push(mvP);
-        animate(900, t => stage.setPoints(mvP, move.map(p => flat(p, t))), () => setTimeout(end, good ? 700 : 1900));
+        // 접기에서는 원래 도형을 그대로 두고, 접혀 올라가는 쪽만 흰색으로 비운 뒤 넘긴다
+        foldAnim(stage, P0, a, b, { good, hold: good ? 700 : 1900, done: end });
+        stage.L('top').appendChild(nodes[0]); // 접는 선이 맨 위에 보이도록
       } else {
         nodes.push(stage.poly(P0, { class: 'outline-ref' }, 'top'));
         const img = stage.poly(stay, { class: 'shape mirror-img' + (good ? ' good' : '') }, 'top');
@@ -678,7 +705,7 @@
       if (phase === 'place') {
         const i = curIdx();
         if (cfg.guided && i >= 0) prompt.innerHTML = `점 <b>${lg.given[i + 1]}</b>의 대응점을 찾아 점 <b>${lg.img[i]}</b>으로 표시해요. <span class="muted">(${cfg.helper !== false ? '점 ' + lg.given[i + 1] + '을 누르면 ' + helpName + '이 그어져요' : ''})</span>`;
-        else prompt.innerHTML = `대응점을 찾아 모눈의 꼭짓점을 눌러 표시해요. <span class="muted">남은 점: ${placed.filter(x => !x).length}개${cfg.helper !== false ? ' · 주어진 꼭짓점을 누르면 ' + helpName + '이 그어져요' : ''}</span>`;
+        else prompt.innerHTML = `대응점을 찾아 ${cfg.pegs ? '도형판의 못' : '모눈의 꼭짓점'}을 눌러 표시해요. <span class="muted">남은 점: ${placed.filter(x => !x).length}개${cfg.helper !== false ? ' · 주어진 꼭짓점을 누르면 ' + helpName + '이 그어져요' : ''}</span>`;
       } else if (phase === 'connect') {
         const names = connectSeq.map(p => labelAt(p));
         prompt.innerHTML = `점 ${names.map(n => '<b>' + n + '</b>').join(', 점 ')}을 <b>차례대로</b> 눌러 이어 보세요.`;
@@ -745,11 +772,14 @@
     }
     function verifyBtn() {
       return btn(line ? '🔍 대칭축을 따라 접어 확인하기' : '🔍 180° 돌려서 확인하기', () => {
+        if (line) {
+          // 학생이 완성한 쪽(대응점이 있는 쪽)을 접어 주어진 쪽에 포갠다
+          const side = img(todo[0]);
+          foldAnim(stage, finalPoly, A, B, { moveSide: side, good: true, hold: 1200, done: () => toast('접었더니 완전히 겹쳐요!', 'good') });
+          return;
+        }
         const ghost = stage.poly(finalPoly, { class: 'shape ghost' }, 'top');
-        animate(1400, t => {
-          const P = finalPoly.map(p => line ? (() => { const f = V.foot(p, A, B); return V.add(f, V.mul(V.sub(p, f), 1 - 2 * t)); })() : V.rot(p, O, 180 * t));
-          stage.setPoints(ghost, P);
-        }, () => { toast('처음 도형과 완전히 겹쳐요!', 'good'); setTimeout(() => ghost.remove(), 900); });
+        animate(1400, t => stage.setPoints(ghost, finalPoly.map(p => V.rot(p, O, 180 * t))), () => { toast('처음 도형과 완전히 겹쳐요!', 'good'); setTimeout(() => ghost.remove(), 900); });
       }, 'secondary small');
     }
     function startConnect() {
@@ -860,11 +890,18 @@
         if (pts.length < 3 || side(pts[pts.length - 1]) !== 0) return { ok: false, msg: '대칭축 위에서 시작해서 대칭축 위에서 끝나도록 만들어 주세요.' };
         const A = ax().a, B = ax().b;
         const whole = pts.concat(pts.slice(1, -1).reverse().map(p => V.round(V.reflect(p, A, B))));
-        if (!Poly.isSimple(whole)) return { ok: false, msg: '고무줄이 서로 겹치거나 한 직선 위에 나란히 있으면 안 돼요. 모양을 조금 바꿔 보세요.' };
+        // 곧은 변 위에 놓인 점(예: 대칭축 위의 점이 위·아래 변의 한가운데에 있는 경우)은 괜찮다.
+        // 고무줄이 서로 엇갈리거나, 같은 길로 되돌아가 겹치는 경우만 안 된다.
+        const n = whole.length;
+        const backtrack = whole.some((b, i) => {
+          const a = whole[(i - 1 + n) % n], c = whole[(i + 1) % n];
+          return Math.abs(V.cross(V.sub(b, a), V.sub(c, b))) < 1e-9 && V.dot(V.sub(b, a), V.sub(c, b)) <= 0;
+        });
+        if (backtrack || !Poly.isSimple(whole, true)) return { ok: false, msg: '고무줄이 서로 엇갈리거나 같은 길을 되돌아가면 안 돼요. 모양을 조금 바꿔 보세요.' };
         return { ok: true, given: pts.slice(), axis: [A, B], n: N };
       },
     };
   }
 
-  window.UI = { bubble, btn, runSteps, choice, fillBlank, conceptCard, Correspond, AxisDraw, GridComplete, GeoHalf, PAIR_COLORS };
+  window.UI = { foldAnim, clipHalf, bubble, btn, runSteps, choice, fillBlank, conceptCard, Correspond, AxisDraw, GridComplete, GeoHalf, PAIR_COLORS };
 })();

@@ -120,8 +120,17 @@
       const c = V.add(m, V.mul(n, 2 * h));
       const g = this.add(sv('g', { class: 'dimg ' + (opt.cls || '') }), opt.layer || 'top');
       g.appendChild(sv('path', { d: `M${a[0]},${a[1]} Q${c[0]},${c[1]} ${b[0]},${b[1]}`, class: 'dim-arc' }));
-      const t = V.add(m, V.mul(n, h + this.fs * 0.8));
-      g.appendChild(sv('text', { x: t[0], y: t[1], 'text-anchor': 'middle', 'dominant-baseline': 'central', class: 'measure ' + (opt.cls || '') }, text));
+      // 글자는 호의 꼭대기 위에, 흰 바탕 상자와 함께
+      const t = V.add(m, V.mul(n, h));
+      const bgR = sv('rect', { class: 'dim-bg', rx: this.fs * 0.25 });
+      g.appendChild(bgR);
+      const tx = sv('text', { x: t[0], y: t[1], 'text-anchor': 'middle', 'dominant-baseline': 'central', class: 'measure dim-text ' + (opt.cls || '') }, text);
+      g.appendChild(tx);
+      let w = 0, hh = 0;
+      try { const bb = tx.getBBox(); w = bb.width; hh = bb.height; } catch (e) { /* 아직 화면에 없을 때 */ }
+      if (!w) { w = this.fs * 0.62 * String(text).length; hh = this.fs * 1.1; }
+      const px = this.fs * 0.22, py = this.fs * 0.08;
+      Object.entries({ x: t[0] - w / 2 - px, y: t[1] - hh / 2 - py, width: w + 2 * px, height: hh + 2 * py }).forEach(([k, v]) => bgR.setAttribute(k, v));
       return g;
     }
     on(h) { Object.assign(this.handlers, h); return this; }

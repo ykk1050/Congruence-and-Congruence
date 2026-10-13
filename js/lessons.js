@@ -123,9 +123,17 @@
     let busy = false;
     return btn(label, () => {
       if (busy) return; busy = true;
+      if (kind === 'fold') {
+        // 대칭축 오른쪽(아래쪽) 반을 접어 넘긴다. 접혀 올라간 자리는 종이가 없어져 흰색이 된다.
+        const sd = (p) => V.cross(V.sub(axis[1], axis[0]), V.sub(p, axis[0]));
+        const far = P.reduce((m, p) => (Math.abs(sd(p)) > Math.abs(sd(m)) ? p : m), P[0]);
+        UI.foldAnim(stage, P, axis[0], axis[1], { moveSide: far, good: true, hold: 2600, labels: P.map((p, i) => ({ p, text: labels[i] })), done: () => { busy = false; } });
+        setTimeout(() => toast('대칭축을 따라 접었더니 완전히 겹쳐요! (파란 글자가 접혀 넘어온 점)', 'good', 3000), 1000);
+        return;
+      }
       const g = stage.poly(P, { class: 'shape ghost' }, 'over');
       const lbls = labels.map((t, i) => stage.text(P[i], t, { class: 'vlabel ghost-lbl' }, 'over'));
-      const at = (p, t) => kind === 'rot' ? V.rot(p, center, 180 * t) : (() => { const f = V.foot(p, axis[0], axis[1]); return V.add(f, V.mul(V.sub(p, f), 1 - 2 * t)); })();
+      const at = (p, t) => V.rot(p, center, 180 * t);
       animate(1500, t => {
         const Q = P.map(p => at(p, t));
         stage.setPoints(g, Q);
@@ -133,7 +141,7 @@
       }, () => {
         const Q = P.map(p => at(p, 1));
         Q.forEach((q, i) => { const j = P.findIndex(p => V.near(p, q, 1e-6)); const z = j >= 0 ? V.add(P[j], V.mul(Poly.inward(P, j), 0.62)) : q; lbls[i].setAttribute('x', z[0]); lbls[i].setAttribute('y', z[1]); });
-        toast(kind === 'rot' ? '180° 돌렸더니 처음 도형과 완전히 겹쳐요! (작은 글자가 겹친 점)' : '대칭축을 따라 접었더니 완전히 겹쳐요! (작은 글자가 겹친 점)', 'good', 3000);
+        toast('180° 돌렸더니 처음 도형과 완전히 겹쳐요! (작은 글자가 겹친 점)', 'good', 3000);
         setTimeout(() => { g.remove(); lbls.forEach(l => l.remove()); busy = false; }, 3200);
       });
     }, 'secondary small');
