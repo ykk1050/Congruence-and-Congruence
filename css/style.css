@@ -499,3 +499,9 @@ b { font-weight: 700; }
 .dimg.ask .dim-bg { stroke: #ffc9d4; }
 .dim-text { paint-order: normal; stroke: none; }
 .fold-gone { fill: #fff; stroke: #ced4da; stroke-width: 2px; vector-effect: non-scaling-stroke; stroke-dasharray: 5 4; }
+.game-card.locked { background: #f5f3ef; }
+.lock-row { display: flex; align-items: center; gap: 14px; }
+.lock-ico { font-size: 2rem; }
+.game-card.locked ul { margin: 10px 0; }
+.tag-lock { background: #ece8e1; color: #7a7266; }
+.unlock-msg { font-weight: 700; color: #2b8a3e; background: var(--good-bg); display: inline-block; padding: 6px 14px; border-radius: 999px; }
