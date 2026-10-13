@@ -57,7 +57,6 @@
     });
     view.appendChild(map);
     view.appendChild(el('div', { class: 'home-foot' },
-      el('a', { class: 'btn ghost', href: '#/teacher' }, '👩‍🏫 선생님 안내'),
       btn('기록 지우기', () => { if (confirm('이 기기에 저장된 활동 기록과 게임 점수를 모두 지울까요?')) { Store.write({ sound: Sound.on, unlockAll: teacherOpen() }); home(); toast('기록을 지웠어요.'); } }, 'ghost small')));
   }
 
@@ -102,10 +101,6 @@
             el('div', {}, el('b', {}, '익히기 게임'), el('div', { class: 'muted' }, `배우기 활동을 모두 마치면 열려요. (남은 활동 ${n}개)`)))));
       }
     }
-    const det = el('details', { class: 'panel teacher-note' },
-      el('summary', {}, '👩‍🏫 선생님 안내 — 학습 지도 및 평가의 주안점(지도서)'),
-      el('ul', {}, L.focus.map(f => el('li', { html: f }))));
-    view.appendChild(det);
   }
 
   /* ---------- 활동 화면 ---------- */
@@ -170,35 +165,11 @@
     G.run(root);
   }
 
-  /* ---------- 교사 안내 ---------- */
-  function teacher() {
-    setCrumb([{ t: '미술관 지도', href: '#/' }, { t: '선생님 안내' }]);
-    clear(view);
-    view.appendChild(el('section', { class: 'panel' },
-      el('h1', {}, '👩‍🏫 선생님 안내'),
-      el('p', {}, '『수학 5-2』 3단원 「합동과 대칭」에서 스마트 패드로 하기에 알맞은 활동을 교과서 순서대로 담았습니다.'),
-      el('h2', {}, '익히기 게임 열기'),
-      el('p', {}, '익히기 게임은 그 전시실의 배우기 활동을 모두 마쳐야 열립니다. (활동 기록은 기기마다 따로 저장돼요) 시범을 보이거나 복습할 때는 아래 버튼으로 이 기기의 게임을 모두 열 수 있어요.'),
-      btn(teacherOpen() ? '🔒 게임 잠금 다시 켜기' : '🔓 이 기기에서 모든 게임 열기', () => { Store.set('unlockAll', !teacherOpen()); toast(teacherOpen() ? '이 기기의 게임을 모두 열었어요.' : '게임 잠금을 다시 켰어요.'); teacher(); }, 'secondary'),
-      el('h2', {}, '전시실별 활동과 지도 주안점'),
-      overview(),
-      el('h2', {}, '수업 활용 팁'),
-      el('ul', {},
-        el('li', {}, '스마트 패드는 ', el('b', {}, '가로 방향'), '을 권장합니다. 전자칠판에 띄워 전체 시범을 보일 수도 있어요.'),
-        el('li', {}, '각 활동은 지도서의 흐름(예상하기 → 확인하기 → 성질 정리하기)을 따르며, 그리기 방법은 외우기 전에 성질을 먼저 떠올리도록 구성했습니다.'),
-        el('li', {}, '익히기 게임은 문제가 무작위로 만들어져 반복 연습이 가능하며, 뒤 문제로 갈수록 어려워집니다. 두 번 틀리면 “정답 보기”가 나타납니다.'),
-        el('li', {}, '활동 완료 표시와 게임 최고 기록은 ', el('b', {}, '그 기기 안에만'), ' 저장되며 서버로 전송되지 않습니다. 홈 화면 아래 “기록 지우기”로 초기화할 수 있어요.'),
-        el('li', {}, '각 전시실 화면 아래의 “선생님 안내”에서도 지도서의 학습 지도 및 평가의 주안점을 확인할 수 있습니다.'))));
-  }
-  function overview() {
-    const wrap = el('div', { class: 'overview' });
-    LESSONS.forEach(L => wrap.appendChild(el('div', { class: 'ov' },
-      el('h3', {}, `${L.emoji} ${L.title}`),
-      el('div', { class: 'ov-cols' },
-        el('div', {}, el('b', {}, '배우기'), el('ul', {}, L.acts.map(a => el('li', {}, a.title))),
-          L.game ? el('p', {}, el('b', {}, '익히기 게임: '), Games[L.game].title) : null),
-        el('div', {}, el('b', {}, '학습 지도 및 평가의 주안점(지도서)'), el('ul', {}, L.focus.map(f => el('li', { html: f }))))))));
-    return wrap;
+  /* ---------- 게임 잠금 풀기 (화면에 링크 없음: 주소 끝에 #/open) ---------- */
+  function openAll() {
+    Store.set('unlockAll', !teacherOpen());
+    toast(teacherOpen() ? '이 기기의 익히기 게임을 모두 열었어요.' : '익히기 게임 잠금을 다시 켰어요.');
+    location.hash = '#/';
   }
 
   /* ---------- 라우터 ---------- */
@@ -209,7 +180,7 @@
     if (page === 'lesson') lesson(arg);
     else if (page === 'act') activity(arg);
     else if (page === 'game') game(arg);
-    else if (page === 'teacher') teacher();
+    else if (page === 'open') openAll();
     else home();
   }
   window.addEventListener('hashchange', route);

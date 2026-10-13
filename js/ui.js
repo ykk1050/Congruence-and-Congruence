@@ -478,6 +478,21 @@
     return { stage };
   }
 
+  /** 180° 돌리기를 90°씩 두 번 나누어 보여 준다 (지도서: 어려워하면 90°씩 두 번 나누어 돌려 보게 한다)
+      node: 돌릴 SVG 요소(transform으로 회전), check90: 90° 돌렸을 때 겹치는지 */
+  function spin180(stage, node, center, opt = {}) {
+    const lbl = stage.text(V.add(center, [0, -stage.fs * 2.2]), '', { class: 'spin-lbl' }, 'top');
+    const rotTo = (a) => node.setAttribute('transform', `rotate(${a} ${center[0]} ${center[1]})`);
+    animate(700, t => rotTo(90 * t), () => {
+      lbl.textContent = opt.same90 ? '90° 돌렸어요 — 벌써 겹쳐요!' : '90° 돌렸어요 — 아직 안 겹쳐요';
+      setTimeout(() => animate(700, t => rotTo(90 + 90 * t), () => {
+        lbl.textContent = opt.same180 ? '180° — 완전히 겹쳐요!' : '180° — 겹치지 않아요';
+        setTimeout(() => lbl.remove(), 1800);
+        opt.done && opt.done();
+      }), 700);
+    });
+  }
+
   /* =========================================================
      대칭축 긋기 (한 도형)
      preview: 'fold' — 잘못 그은 선으로 접었을 때의 모양
@@ -627,7 +642,10 @@
           wrongCount++; Sound.bad();
           preview(s, p, false);
           fb.className = 'fb bad';
-          fb.innerHTML = mode === 'mirror'
+          // 지도서 오개념: ‘선대칭도형 = 둘로 똑같이 나누어진 도형’ (예: 평행사변형을 가운데로 자른 경우)
+          const halvesSame = P0 && (() => { const h1 = clipHalf(P0, s, p, 1), h2 = clipHalf(P0, s, p, -1); return h1.length >= 3 && h1.length === h2.length && Poly.congruent(h1, h2, 0.05); })();
+          if (halvesSame) fb.innerHTML = '이 선으로 자르면 <b>모양과 크기가 같은 두 조각</b>이 되긴 해요. 하지만 이 선을 따라 <b>접으면</b> 완전히 겹치지 않아요. 대칭축은 둘로 똑같이 나누는 선이 아니라 <b>접었을 때 완전히 겹치는</b> 선이에요.';
+          else fb.innerHTML = mode === 'mirror'
             ? '이 선에 거울을 세우면 <b>원래 작품과 다른 모양</b>이 보여요. (점선이 원래 작품)'
             : '이 선을 따라 접으면 <b>완전히 겹치지 않아요</b>. 접힌 부분(빨간색)이 삐져나오거나 모자라요.';
         }
@@ -925,5 +943,5 @@
     };
   }
 
-  window.UI = { foldAnim, clipHalf, bubble, btn, runSteps, choice, fillBlank, conceptCard, Correspond, AxisDraw, GridComplete, GeoHalf, PAIR_COLORS };
+  window.UI = { spin180, foldAnim, clipHalf, bubble, btn, runSteps, choice, fillBlank, conceptCard, Correspond, AxisDraw, GridComplete, GeoHalf, PAIR_COLORS };
 })();

@@ -726,7 +726,8 @@
         let done = false;
         const spin = (cb) => {
           const g = st.fig(f, { class: 'shape ghost-rot' }, 'over');
-          animate(1300, t => g.setAttribute('transform', `rotate(${180 * t} ${center[0]} ${center[1]})`), () => { cb && cb(); setTimeout(() => g.remove(), 1500); });
+          const same90 = f.kind !== 'circle' && Fig.equal(f, Fig.map(f, q => V.rot(q, center, 90)), 1e-3);
+          UI.spin180(st, g, center, { same90: f.kind === 'circle' || same90, same180: ps, done: () => { cb && cb(); setTimeout(() => g.remove(), 1500); } });
         };
         if (mode === 'ox') {
           q.innerHTML = `이 ${it.kind}${it.kind === '도형' ? '은' : '는'} <b>점대칭도형</b>일까요? <span class="muted">(빨간 점을 중심으로 돌려 생각해요)</span>`;

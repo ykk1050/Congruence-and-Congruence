@@ -544,3 +544,4 @@ b { font-weight: 700; }
 .sc-dot { fill: #e03131; }
 .sc-sign { stroke-width: 2px; vector-effect: non-scaling-stroke; }
 .sc-board-lbl { font-size: .62px; fill: #fff; }
+.spin-lbl { font-size: .8em; fill: #c92a2a; paint-order: stroke; stroke: #fff; stroke-width: .25em; font-weight: 700; }
