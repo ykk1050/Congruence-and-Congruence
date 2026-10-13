@@ -38,9 +38,23 @@
     let idx = 0;
     const doneSet = new Set();
 
+    // 점을 누르면 그 단계로 이동 (앞 단계를 모두 마쳤을 때만)
+    const reachable = (i) => { for (let j = 0; j < i; j++) if (!doneSet.has(j)) return false; return true; };
     function renderDots() {
       clear(dots);
-      steps.forEach((_, i) => dots.appendChild(el('span', { class: 'dot' + (i === idx ? ' on' : '') + (doneSet.has(i) ? ' done' : '') })));
+      steps.forEach((_, i) => {
+        const ok = reachable(i);
+        const d = el('button', {
+          type: 'button', class: 'dot' + (i === idx ? ' on' : '') + (doneSet.has(i) ? ' done' : '') + (ok ? '' : ' locked'),
+          'aria-label': `${i + 1}단계` + (ok ? '' : ' (앞 단계를 먼저 마쳐요)'), title: `${i + 1}단계`,
+        });
+        d.addEventListener('click', () => {
+          if (i === idx) return;
+          if (!ok) { Sound.bad(); toast('앞 단계를 먼저 마쳐야 넘어갈 수 있어요.'); return; }
+          Sound.tap(); go(i);
+        });
+        dots.appendChild(d);
+      });
     }
     function go(i) {
       if (i < 0 || i >= steps.length) { if (i >= steps.length && opt.onFinish) opt.onFinish(); return; }

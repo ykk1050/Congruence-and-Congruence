@@ -505,3 +505,42 @@ b { font-weight: 700; }
 .game-card.locked ul { margin: 10px 0; }
 .tag-lock { background: #ece8e1; color: #7a7266; }
 .unlock-msg { font-weight: 700; color: #2b8a3e; background: var(--good-bg); display: inline-block; padding: 6px 14px; border-radius: 999px; }
+
+/* 단계 점 (누르면 이동) */
+.step-dots .dot { border: 0; padding: 0; cursor: pointer; position: relative; }
+.step-dots .dot::after { content: ''; position: absolute; inset: -10px; }
+.step-dots .dot.locked { cursor: not-allowed; opacity: .6; }
+.step-dots { gap: 14px; }
+
+/* 상황 장면 그림 */
+.scene-wrap { position: relative; max-width: 960px; margin: 0 auto 12px; border-radius: 20px; overflow: hidden; box-shadow: var(--shadow); background: #fff; }
+.scene-banner { display: block; width: 100%; height: auto; aspect-ratio: 4 / 1; }
+.scene-cap { padding: 8px 14px; font-size: .95rem; color: #3b3f55; background: #fffaf0; border-top: 1px solid var(--line); }
+.scene-banner text { font-family: var(--font-title); }
+.sc-kid { font-family: 'Segoe UI Emoji', 'Apple Color Emoji', 'Noto Color Emoji', sans-serif !important; }
+.sc-wall { fill: #efe2c9; } .sc-wall2 { fill: #e9ddf5; } .sc-wall3 { fill: #fbe9d4; } .sc-wall4 { fill: #fdf3d8; } .sc-wall5 { fill: #e3f1ea; }
+.sc-floor { fill: #e6dac4; } .sc-floor-line { stroke: #d2c3a6; stroke-width: 1px; vector-effect: non-scaling-stroke; }
+.sc-base { fill: #8a6a3a; }
+.sc-frame { fill: #c99a2e; } .sc-canvas { fill: #fff; }
+.sc-sea { fill: #4dabf7; } .sc-sun { fill: #ff922b; } .sc-mount { fill: #5c940d; }
+.sc-red { fill: #e03131; } .sc-yellow { fill: #fcc419; } .sc-blue { fill: #1971c2; }
+.sc-arrow { fill: #ff922b; stroke: #c25e00; stroke-width: 1.5px; vector-effect: non-scaling-stroke; }
+.sc-studio { fill: #f3ece0; } .sc-table { fill: #b07a45; }
+.sc-plate { fill: #26346b; } .sc-carve { fill: none; stroke: #f6d58e; stroke-width: 3px; vector-effect: non-scaling-stroke; }
+.sc-paper { fill: #fffdf7; stroke: #e5ddcf; stroke-width: 1px; vector-effect: non-scaling-stroke; }
+.sc-print { fill: #3b5bdb; opacity: .85; }
+.sc-roller { fill: #495057; } .sc-handle { fill: #8d5524; }
+.sc-cap { font-size: .9px; fill: #6b5a3a; } .sc-cap.dark { fill: #6a4b00; font-size: .75px; }
+.sc-window { fill: #fff; stroke: #6c4f2a; stroke-width: 4px; vector-effect: non-scaling-stroke; }
+.sc-glass { stroke: #3d2c16; stroke-width: 2px; vector-effect: non-scaling-stroke; opacity: .9; }
+.sc-g1 { fill: #ff8787; } .sc-g2 { fill: #74c0fc; } .sc-g3 { fill: #ffd43b; } .sc-g4 { fill: #8ce99a; }
+.sc-spark { fill: #ffe066; }
+.sc-card { fill: #fff; stroke: #e0c48a; stroke-width: 2px; vector-effect: non-scaling-stroke; }
+.sc-cut { stroke: #343a40; stroke-width: 1.5px; vector-effect: non-scaling-stroke; }
+.sc-p1 { fill: #f783ac; } .sc-p2 { fill: #69db7c; } .sc-p3 { fill: #ff6b6b; } .sc-p4 { fill: #ffd43b; }
+.sc-ceiling { fill: #c9b79c; } .sc-string { stroke: #868e96; stroke-width: 1px; vector-effect: non-scaling-stroke; }
+.sc-letter line { stroke-width: .5px; stroke-linecap: square; }
+.sc-l1 line { stroke: #f76707; } .sc-l2 line { stroke: #37b24d; } .sc-l3 line { stroke: #f59f00; } .sc-l4 line { stroke: #1c7ed6; }
+.sc-dot { fill: #e03131; }
+.sc-sign { stroke-width: 2px; vector-effect: non-scaling-stroke; }
+.sc-board-lbl { font-size: .62px; fill: #fff; }

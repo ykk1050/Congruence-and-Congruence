@@ -67,6 +67,8 @@
     if (!L) return home();
     setCrumb([{ t: '미술관 지도', href: '#/' }, { t: L.title }]);
     clear(view);
+    const sc = Scenes.scene(L.id);
+    if (sc) view.appendChild(el('div', { class: 'scene-wrap' }, sc));
     view.appendChild(el('section', { class: 'lesson-head' },
       el('div', { class: 'lesson-emoji', 'aria-hidden': 'true' }, L.emoji),
       el('div', {},
@@ -113,6 +115,8 @@
     const { lesson: L, act: a } = found;
     setCrumb([{ t: '미술관 지도', href: '#/' }, { t: L.title, href: '#/lesson/' + L.id }]);
     clear(view);
+    const sc = Scenes.scene(L.id);
+    if (sc) view.appendChild(el('div', { class: 'scene-wrap' }, sc, el('div', { class: 'scene-cap' }, L.story)));
     view.appendChild(el('div', { class: 'act-head' }, el('h1', {}, a.title)));
     const root = el('section', { class: 'activity' });
     view.appendChild(root);

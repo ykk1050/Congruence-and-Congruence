@@ -59,6 +59,7 @@ css/style.css     스타일 (패드 가로 화면 기준, 세로·휴대폰 대�
 js/core.js        DOM/SVG 도우미, 기하 계산(합동·대칭 판정), 저장, 소리
 js/stage.js       모눈/도형을 그리는 SVG 무대와 터치 입력
 js/ui.js          공용 부품: 단계 진행, 선택·빈칸 문제, 대응 찾기, 대칭축 긋기, 대칭도형 완성, 도형판
+js/scenes.js      전시실마다 상황을 보여 주는 장면 그림
 js/shapes.js      무작위 문제 생성기와 도형·글자 모음
 js/lessons.js     차시 구성(교과서 순서), 활동 분류, 배우기 활동
 js/games.js       익히기 게임
