@@ -464,3 +464,32 @@ b { font-weight: 700; }
 .mu-tile-edge { fill: none; stroke: #8f3d14; stroke-width: 2.5px; vector-effect: non-scaling-stroke; stroke-linejoin: round; }
 .shape.mu-fly { fill: #ff9f68; stroke: #8f3d14; }
 .mu-spark { fill: none; stroke: #ffd43b; stroke-width: 4px; vector-effect: non-scaling-stroke; }
+
+/* 교통안전 체험관 */
+.ts-sky { fill: #a5d8ff; }
+.ts-sun { fill: #ffd43b; }
+.ts-cloud { fill: #fff; opacity: .9; }
+.ts-bldg { fill: #f1e4cf; stroke: #c9b18a; stroke-width: 1.5px; vector-effect: non-scaling-stroke; }
+.ts-win { fill: #d0ebff; stroke: #868e96; stroke-width: 1px; vector-effect: non-scaling-stroke; }
+.ts-board { fill: #2b8a3e; stroke: #fff; stroke-width: 2px; vector-effect: non-scaling-stroke; }
+.ts-board-lbl { font-family: var(--font-title); font-size: .66em; fill: #fff; }
+.ts-door { fill: #845ef7; opacity: .75; }
+.ts-trunk { fill: #8d5524; }
+.ts-tree { fill: #51cf66; }
+.ts-road { fill: #495057; }
+.ts-lane { fill: #ffd43b; }
+.ts-zebra { fill: #f8f9fa; }
+.ts-pole { fill: #868e96; }
+.ts-light { fill: #212529; }
+.ts-base { fill: #495057; }
+.ts-walk { fill: #e9d8c4; }
+.ts-walk-line { stroke: #d4bfa5; stroke-width: 1px; vector-effect: non-scaling-stroke; }
+.ts-bin-box { fill: #fff8e7; stroke: #e0a800; stroke-width: 3px; vector-effect: non-scaling-stroke; }
+.ts-bin-top { fill: #ffd43b; }
+.ts-bin-lbl { font-family: var(--font-title); font-size: .78em; fill: #4a3500; }
+.ts-bin.wrong .ts-bin-box { stroke: var(--bad); fill: var(--bad-bg); }
+.ts-sign { cursor: grab; }
+.ts-sign.lifted { filter: drop-shadow(.2px .3px .25px rgba(0, 0, 0, .45)); }
+.ts-sign .axis.reveal { stroke-width: 3px; }
+.ts-card { fill: rgba(255, 255, 255, .93); stroke: #2b8a3e; stroke-width: 3px; stroke-dasharray: 8 5; vector-effect: non-scaling-stroke; }
+.ts-card-lbl { font-family: var(--font-title); font-size: .7em; fill: #2b8a3e; }

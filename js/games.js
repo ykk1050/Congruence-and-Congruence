@@ -744,57 +744,138 @@
   }
 
   /* =========================================================
-     단원 정리 — 교통안전 체험관 표지판 분류
+     단원 정리 — 교통안전 체험관 표지판 분류 (표지판을 끌어서 보관함에 넣기)
      ========================================================= */
+  function trafficScene(st, W) {
+    const bg = st.L('bg'), r = (x, y, w, h, cls, rx) => bg.appendChild(sv('rect', { x, y, width: w, height: h, rx: rx || 0, class: cls }));
+    r(0, 0, W, 8.2, 'ts-sky');
+    bg.appendChild(sv('circle', { cx: W - 2.4, cy: 1.5, r: 0.9, class: 'ts-sun' }));
+    [[3.5, 1.2], [9, 0.8], [20, 1.4]].forEach(([x, y]) => [[0, 0, 0.9], [0.8, -0.25, 0.75], [1.5, 0.05, 0.6]].forEach(([dx, dy, rr]) => bg.appendChild(sv('circle', { cx: x + dx, cy: y + dy, r: rr, class: 'ts-cloud' }))));
+    // 체험관 건물과 간판
+    r(4.3, 3.2, 19.4, 5, 'ts-bldg', 0.15);
+    for (let i = 0; i < 6; i++) r(5 + i * 3.1, 3.8, 1.6, 1.3, 'ts-win', 0.1);
+    r(4.5, 2.25, 6.2, 1.1, 'ts-board', 0.25);
+    bg.appendChild(sv('text', { x: 7.6, y: 2.82, 'text-anchor': 'middle', 'dominant-baseline': 'central', class: 'ts-board-lbl' }, '🚸 교통안전 체험관'));
+    r(19.4, 5.6, 2.4, 2.6, 'ts-door', 0.1);
+    // 나무
+    [[1.8, 6.4], [26.2, 6.4]].forEach(([x, y]) => { r(x - 0.15, y, 0.3, 1.8, 'ts-trunk'); bg.appendChild(sv('circle', { cx: x, cy: y - 0.3, r: 1.1, class: 'ts-tree' })); });
+    // 도로와 횡단보도
+    r(0, 8.2, W, 3.4, 'ts-road');
+    for (let x = 0.4; x < W; x += 2.2) if (x < 9.6 || x > 18.2) r(x, 9.82, 1.2, 0.16, 'ts-lane');
+    for (let x = 10; x < 18.2; x += 1.1) r(x, 8.4, 0.6, 3, 'ts-zebra');
+    // 신호등
+    r(0.55, 3.6, 0.22, 4.6, 'ts-pole');
+    r(0.15, 2.0, 1.0, 2.5, 'ts-light', 0.2);
+    ['#ff6b6b', '#ffd43b', '#51cf66'].forEach((c, i) => bg.appendChild(sv('circle', { cx: 0.65, cy: 2.45 + i * 0.8, r: 0.3, fill: i === 2 ? c : '#495057' })));
+    // 인도
+    r(0, 11.6, W, 8, 'ts-walk');
+    for (let x = 0; x < W; x += 1.4) bg.appendChild(sv('line', { x1: x, y1: 11.6, x2: x, y2: 19.6, class: 'ts-walk-line' }));
+  }
+  const SIGN_COLORS = [['#ffd43b', '#c92a2a'], ['#4dabf7', '#1864ab'], ['#ff8787', '#a61e1e'], ['#69db7c', '#2b8a3e'], ['#ffffff', '#c92a2a'], ['#ffa94d', '#a34700']];
+  function drawSign(st, it, layer) {
+    const g = sv('g', { class: 'ts-sign' });
+    st.L(layer || 'over').appendChild(g);
+    const f = it.fig, fill = it.color[0], edge = it.color[1];
+    const n = st.fig(f, f.kind === 'strokes' ? { class: 'shape letter sign-letter', style: `stroke:${edge}` } : { class: 'shape sign', style: `fill:${fill};stroke:${edge}` }, layer || 'over');
+    if (f.kind === 'strokes') n.querySelectorAll('line').forEach(l => { l.style.stroke = edge; });
+    g.appendChild(n);
+    return g;
+  }
+
   function gameSort(root) {
     const BINS = [
-      { key: 'line', label: '선대칭도형만', icon: '↔' },
+      { key: 'line', label: '선대칭도형만', icon: '↔️' },
       { key: 'point', label: '점대칭도형만', icon: '🔄' },
       { key: 'both', label: '둘 다', icon: '✨' },
-      { key: 'none', label: '둘 다 아님', icon: '✖' },
+      { key: 'none', label: '둘 다 아님', icon: '✖️' },
     ];
     const items = () => {
       const a = Object.keys(Shapes.letterLib).concat(['ㅇ']).map(ch => Shapes.letter(ch, 5));
       const b = Object.keys(Shapes.polyLib).map(nm => Shapes.polyShape(nm, R.pick([0, 0, 30, 45])));
       return R.shuffle(a.concat(b, [{ fig: Fig.circle([0, 0], 2.8), name: '원' }]));
     };
-    let deck = [];
+    let deck = [], sorted = {};
     GameShell(root, {
       id: 'g12', emoji: '🚦', title: '교통안전 체험관 표지판 분류',
       story: [
-        { who: 'seung', text: '교통안전 체험관에서 새 표지판과 글자 판을 정리해야 해요.' },
-        { who: 'guide', text: '표지판을 <b>선대칭도형만</b>, <b>점대칭도형만</b>, <b>둘 다</b>, <b>둘 다 아님</b> 상자로 나누어 주세요. 선대칭도형이면서 점대칭도형인 것은 “둘 다”에 넣어요.' },
+        { who: 'seung', text: '교통안전 체험관에 새 표지판과 글자판이 잔뜩 도착했어요. 체험관을 열기 전에 정리해야 해요!' },
+        { who: 'guide', text: '표지판을 손가락으로 끌어 <b>선대칭도형만</b>, <b>점대칭도형만</b>, <b>둘 다</b>, <b>둘 다 아님</b> 보관함에 넣어 주세요. 선대칭도형이면서 점대칭도형인 것은 “둘 다” 보관함이에요.' },
       ],
-      mission: '합동과 대칭에서 배운 내용을 모두 떠올려 도형을 알맞은 상자에 넣어요.',
+      mission: '대칭축이 있는지, 180° 돌렸을 때 겹치는지 생각해서 표지판을 알맞은 보관함으로 끌어 넣어요.',
       rounds: 15, roundName: '표지판',
       makeRound(area, api) {
+        if (api.index === 0) sorted = { line: [], point: [], both: [], none: [] };
         if (!deck.length) deck = items();
         const it = deck.pop();
+        it.color = R.pick(SIGN_COLORS);
         const f = it.fig, type = Fig.symType(f);
-        area.appendChild(el('div', { class: 'q', html: '이 표지판은 어느 상자에 넣어야 할까요?' }));
-        const st = new Stage(area, { x0: -4.4, y0: -4, w: 8.8, h: 8, cls: 'sign-stage' });
-        st.fig(f, { class: 'shape ' + (f.kind === 'strokes' ? 'letter sign-letter' : 'sign') + (f.kind === 'circle' ? ' ring' : '') });
-        const bins = el('div', { class: 'bins' });
-        area.appendChild(bins);
-        let done = false;
-        const explain = () => {
-          const ax = Fig.axes(f);
-          if (ax === Infinity) st.fullLine([-3, 0], [3, 0], { class: 'axis reveal' }, 'over');
-          else ax.forEach(a => st.fullLine(a.a, a.b, { class: 'axis reveal' }, 'over', 0.2));
-          const nAx = ax === Infinity ? '셀 수 없이 많아요' : ax.length + '개';
-          const ps = Fig.isPointSym(f);
-          return `대칭축: <b>${nAx}</b> · 180° 돌리면 <b>${ps ? '완전히 겹쳐요' : '겹치지 않아요'}</b> → <b>${BINS.find(b => b.key === type).label}</b>`;
-        };
-        BINS.forEach(b => {
-          const node = el('button', { class: 'bin', type: 'button' }, el('span', { class: 'bin-icon' }, b.icon), el('span', {}, b.label));
-          node.onclick = () => {
-            if (done) return;
-            if (b.key === type) { done = true; node.classList.add('right'); api.correct(explain()); }
-            else { node.classList.add('wrong'); shake(node); api.wrong(); if (api.tries >= 2) { done = true; api.giveUp(explain()); } }
-          };
-          bins.appendChild(node);
+        const W = 28, H = 19.6, K = 0.6, HOME = [14, 5.0];
+        area.appendChild(el('div', { class: 'q', html: '새 표지판을 <b>끌어서</b> 알맞은 보관함에 넣어요.' }));
+        const st = new Stage(area, { x0: 0, y0: 0, w: W, h: H, cls: 'tile-stage' });
+        st.svg.classList.add('tappable');
+        trafficScene(st, W);
+        // 새 표지판을 올려 둔 카드
+        st.L('bg').appendChild(sv('rect', { x: HOME[0] - 2.9, y: HOME[1] - 3.2, width: 5.8, height: 6.4, rx: 0.4, class: 'ts-card' }));
+        st.L('bg').appendChild(sv('text', { x: HOME[0], y: HOME[1] - 2.75, 'text-anchor': 'middle', 'dominant-baseline': 'central', class: 'ts-card-lbl' }, '새 표지판'));
+        // 보관함
+        const bw = (W - 1) / 4;
+        const bins = BINS.map((b, i) => {
+          const x = 0.5 + i * bw, y = 12.2, w = bw - 0.4, h = 7;
+          const g = sv('g', { class: 'ts-bin' });
+          g.appendChild(sv('rect', { x, y, width: w, height: h, rx: 0.35, class: 'ts-bin-box' }));
+          g.appendChild(sv('rect', { x, y, width: w, height: 1.3, rx: 0.35, class: 'ts-bin-top' }));
+          g.appendChild(sv('text', { x: x + w / 2, y: y + 0.68, 'text-anchor': 'middle', 'dominant-baseline': 'central', class: 'ts-bin-lbl' }, b.icon + ' ' + b.label));
+          st.L('main').appendChild(g);
+          return Object.assign({ x, y, w, h, g }, b);
         });
-        api.onReveal(() => { if (!done) { done = true; api.giveUp(explain()); } });
+        // 이미 정리한 표지판은 보관함 안에 작게
+        const slot = (bin, k) => [bin.x + 0.9 + (k % 4) * ((bin.w - 1.8) / 3), bin.y + 2.3 + Math.floor(k / 4) * 1.6];
+        bins.forEach(b => sorted[b.key].forEach((old, k) => {
+          const s = drawSign(st, old, 'main'), p = slot(b, k);
+          s.setAttribute('transform', `translate(${p[0]} ${p[1]}) scale(0.16)`);
+        }));
+        // 새 표지판
+        const sign = drawSign(st, it, 'over');
+        let pos = HOME.slice(), scale = K, drag = null, done = false;
+        const put = () => sign.setAttribute('transform', `translate(${pos[0]} ${pos[1]}) scale(${scale})`);
+        put();
+        const fly = (bin, then) => {
+          const from = pos.slice(), s0 = scale, to = slot(bin, sorted[bin.key].length);
+          animate(600, t => { pos = V.lerp(from, to, t); scale = s0 + (0.16 - s0) * t; put(); }, () => { sorted[bin.key].push(it); then && then(); });
+        };
+        const showAxes = () => {
+          const ax = Fig.axes(f), c = Fig.center(f);
+          const degs = ax === Infinity ? [0, 45, 90, 135] : ax.map(a => a.deg);
+          degs.forEach(d => { const v = V.rotVec([1, 0], d); sign.appendChild(sv('line', { x1: c[0] - v[0] * 3.6, y1: c[1] - v[1] * 3.6, x2: c[0] + v[0] * 3.6, y2: c[1] + v[1] * 3.6, class: 'axis reveal' })); });
+          if (Fig.isPointSym(f)) sign.appendChild(sv('circle', { cx: c[0], cy: c[1], r: 0.25, class: 'center-dot' }));
+        };
+        const explain = () => {
+          const ax = Fig.axes(f), nAx = ax === Infinity ? '셀 수 없이 많아요' : ax.length + '개';
+          return `대칭축: <b>${nAx}</b> · 180° 돌리면 <b>${Fig.isPointSym(f) ? '완전히 겹쳐요' : '겹치지 않아요'}</b> → <b>${BINS.find(b => b.key === type).label}</b>`;
+        };
+        const finishTo = (ok) => {
+          done = true; showAxes();
+          const bin = bins.find(b => b.key === type);
+          setTimeout(() => fly(bin, () => (ok ? api.correct(explain()) : api.giveUp(explain()))), 900);
+        };
+        const back = () => { const from = pos.slice(); animate(300, t => { pos = V.lerp(from, HOME, t); put(); }); };
+        st.on({
+          tap: (p) => { if (!done && V.dist(p, pos) < 2.6) toast('표지판을 손가락으로 끌어서 보관함에 넣어 보세요.'); },
+          dragStart: (p) => { if (!done && V.dist(p, pos) < 3) { drag = V.sub(pos, p); sign.classList.add('lifted'); } },
+          dragMove: (p) => { if (drag) { pos = V.add(p, drag); put(); } },
+          dragCancel: () => { if (drag) { drag = null; sign.classList.remove('lifted'); back(); } },
+          dragEnd: (p) => {
+            if (!drag) return;
+            drag = null; sign.classList.remove('lifted');
+            const bin = bins.find(b => p[0] >= b.x && p[0] <= b.x + b.w && p[1] >= b.y - 0.8);
+            if (!bin) { back(); return; }
+            if (bin.key === type) { Sound.good(); finishTo(true); return; }
+            bin.g.classList.add('wrong'); setTimeout(() => bin.g.classList.remove('wrong'), 700);
+            back(); api.wrong(`‘${bin.label}’ 보관함이 아니에요. 대칭축과 180° 돌리기를 다시 생각해 보세요.`);
+            if (api.tries >= 2) finishTo(false);
+          },
+        });
+        api.onReveal(() => { if (!done) finishTo(false); });
       },
     });
   }
