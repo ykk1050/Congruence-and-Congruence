@@ -98,6 +98,42 @@
     }
   }
 
+  /** 문제 유형 순서 정하기: 목록(같은 유형을 여러 번 넣어 비중 조절)을 섞어 하나씩 꺼내 쓰고,
+      다 쓰면 다시 섞는다. 목록이 바뀌면(레벨이 바뀌면) 새로 섞는다. 같은 유형이 연달아 나오지 않게 한다. */
+  function TypeBag() {
+    let key = '', bag = [], last = null;
+    return {
+      draw(list) {
+        const k = list.join('|');
+        if (k !== key) { key = k; bag = []; }
+        if (!bag.length) {
+          bag = R.shuffle(list);
+          const alt = bag.findIndex(x => x !== last);
+          if (bag[bag.length - 1] === last && alt >= 0) [bag[alt], bag[bag.length - 1]] = [bag[bag.length - 1], bag[alt]];
+        }
+        let idx = bag.length - 1;
+        if (bag[idx] === last) { const j = bag.findIndex(x => x !== last); if (j >= 0) idx = j; }
+        last = bag.splice(idx, 1)[0];
+        return last;
+      },
+      reset() { key = ''; bag = []; last = null; },
+    };
+  }
+  /** 한 판 안에서 이미 나온 것을 기억한다. 고를 것이 없으면 겹침을 허용한다. */
+  function Seen() {
+    const set = new Set();
+    return {
+      has: (k) => set.has(k), add: (k) => set.add(k), clear: () => set.clear(),
+      /** gen()으로 만든 것 중 key가 처음인 것을 고른다(최대 tries번, 못 찾으면 마지막 것) */
+      fresh(gen, keyOf, tries = 60) {
+        let x;
+        for (let t = 0; t < tries; t++) { x = gen(); if (x != null && !set.has(keyOf(x))) break; }
+        if (x != null) set.add(keyOf(x));
+        return x;
+      },
+    };
+  }
+
   /** 숫자 입력판 */
   function keypad(box, onSubmit, unit) {
     let val = '';
@@ -154,6 +190,8 @@
   }
 
   function gameTiles(root) {
+    const seen = Seen();
+    const shapeKey = (P) => [0, 1, 2, 3, 4, 5, 6, 7].map(k => JSON.stringify(Shapes.normalize(Shapes.d4(P, k)))).sort()[0];
     GameShell(root, {
       id: 'g2', emoji: '🧩', title: '미술관 바닥 타일 수리',
       story: [
@@ -164,8 +202,13 @@
       rounds: 10, roundName: '타일',
       makeRound(area, api) {
         const W = 28, F0 = 3, F1 = 11, T0 = 11.6, H = 18.2;
-        let P;
-        do { P = Shapes.latticeShape(api.level); } while (Math.max(Poly.bbox(P).w, Poly.bbox(P).h) > 5);
+        if (api.index === 0) seen.clear();
+        // 한 판 안에서는 같은 모양 타일이 다시 나오지 않게 (돌리거나 뒤집은 것도 같은 모양)
+        const P = seen.fresh(() => {
+          let Q;
+          do { Q = Shapes.latticeShape(api.level); } while (Math.max(Poly.bbox(Q).w, Poly.bbox(Q).h) > 5);
+          return Q;
+        }, shapeKey);
         const nHoles = api.level >= 3 ? 2 : 1;
         const nTiles = api.level === 1 ? 3 : 4;
         // 깨진 자리(구멍): P를 돌리거나 뒤집은 모양
@@ -355,6 +398,7 @@
      3차시 — 판화 공방 (합동인 도형의 성질)
      ========================================================= */
   function gamePrint(root) {
+    const bag = TypeBag();
     GameShell(root, {
       id: 'g3', emoji: '🖨️', title: '승현이의 판화 공방',
       story: [
@@ -394,8 +438,11 @@
         const q = el('div', { class: 'q' });
         const ansBox = el('div', { class: 'ans' });
         area.append(q, ansBox);
-        const typeL1 = R.pick(['point', 'side', 'angle', 'point', 'side', 'angle', 'count']);
-        const type = api.level === 1 ? typeL1 : api.level === 2 ? R.pick(['len', 'ang', 'len', 'ang']) : (tri ? R.pick(['perim', 'sum', 'len', 'ang']) : R.pick(['len', 'ang']));
+        if (api.index === 0) bag.reset();
+        // 대응 찾기 3종은 두 번씩, ‘몇 쌍’은 한 번 (비중 유지)
+        const type = api.level === 1 ? bag.draw(['point', 'side', 'angle', 'point', 'side', 'angle', 'count'])
+          : api.level === 2 ? bag.draw(['len', 'ang'])
+          : (tri ? bag.draw(['perim', 'sum', 'len', 'ang']) : R.pick(['len', 'ang']));
         // 질문 대상: A 또는 B
         const askOnB = R.chance(0.5);
         const i = R.int(0, n - 1);
@@ -563,7 +610,7 @@
   /* =========================================================
      5~6차시 — 데칼코마니 작품 복원 (선대칭도형 완성 + 성질)
      ========================================================= */
-  function symProperty(area, api, mode) {
+  function symProperty(area, api, mode, bag) {
     // 교과서처럼 실제 크기와 다른(눈금 없는) 그림으로 성질 문제
     const isLine = mode === 'line';
     const gen = isLine ? Shapes.lineHalf(R.pick(['v', 'v', 'h'])) : Shapes.pointHalf();
@@ -600,7 +647,7 @@
     const cands = whole.map((_, i) => i).filter(i => corr(i) !== i);
     const i = R.pick(cands), j = corr(i);
     const types = isLine ? ['side', 'angle', 'dist', 'perp', 'claim', 'perim'] : ['side', 'angle', 'half', 'whole', 'claim', 'perim'];
-    const type = R.pick(types);
+    const type = bag ? bag.draw(types) : R.pick(types);
     let answer, unit = 'cm';
     const traps = {};
     if (type === 'claim') return claimRound();
@@ -780,6 +827,7 @@
   }
 
   function gameDecal(root) {
+    const quiz = TypeBag();
     GameShell(root, {
       id: 'g5', emoji: '🎨', title: '데칼코마니 작품 복원',
       story: [
@@ -789,7 +837,8 @@
       mission: '대응점끼리 이은 선분은 대칭축과 <b>수직</b>이고, 대응점에서 대칭축까지의 <b>거리가 같다</b>는 성질을 이용해요. 주어진 꼭짓점을 누르면 수선이 그어져요.',
       rounds: 10, roundName: '작품',
       makeRound(area, api) {
-        if ([2, 5, 8].includes(api.index)) symProperty(area, api, 'line');
+        if (api.index === 0) quiz.reset();
+        if ([2, 5, 8].includes(api.index)) symProperty(area, api, 'line', quiz); // 성질 퀴즈 3번은 서로 다른 유형
         else completeRound(area, api, 'line');
       },
     });
@@ -805,6 +854,8 @@
       return letters.concat(polys);
     };
     let items = pool();
+    const bag = TypeBag(), seen = Seen();
+    const itemKey = (it) => it.kind + it.name;
     GameShell(root, {
       id: 'g7', emoji: '🔤', title: '천장 글자 작품 감별사',
       story: [
@@ -814,19 +865,16 @@
       mission: '점대칭도형인지 판단하고, <b>대칭의 중심</b>과 <b>대응점</b>을 찾아요.',
       rounds: 12, roundName: '작품',
       makeRound(area, api) {
-        const mode = api.level === 1 ? R.pick(['ox', 'ox', 'predict']) : api.level === 2 ? R.pick(['ox', 'center', 'predict', 'why']) : R.pick(['center', 'corr', 'corr', 'why', 'predict']);
+        if (api.index === 0) { bag.reset(); seen.clear(); }
+        const mode = bag.draw(api.level === 1 ? ['ox', 'ox', 'predict'] : api.level === 2 ? ['ox', 'center', 'predict', 'why'] : ['center', 'corr', 'corr', 'why', 'predict']);
         if (mode === 'corr') return corrRound(area, api);
         if (mode === 'predict') return predictRound(area, api);
         if (mode === 'why') return whyRound(area, api);
         let it;
         const want = mode === 'center' ? 'point' : null;
-        for (let t = 0; t < 200; t++) {
-          it = R.pick(items);
-          const ty = Fig.symType(it.fig);
-          if (want && !(ty === 'point' || ty === 'both')) continue;
-          if (!want && R.chance(0.45) && !(ty === 'point' || ty === 'both')) continue; // 균형 맞추기
-          break;
-        }
+        // 정답(점대칭인지)의 균형을 먼저 정하고, 그 안에서 이번 판에 안 나온 것을 고른다
+        const wantPoint = want ? true : R.chance(0.5);
+        it = pickItem(x => (Fig.isPointSym(x.fig) === wantPoint));
         const f = it.fig, c = Fig.center(f), ps = Fig.isPointSym(f);
         const bb = Fig.bbox(f);
         const isCircle = f.kind === 'circle';
@@ -868,7 +916,12 @@
         void c;
       },
     });
-    const pickItem = (ok) => { for (let t = 0; t < 300; t++) { const it = R.pick(items); if (ok(it)) return it; } return R.pick(items); };
+    const pickItem = (ok) => {
+      const fit = items.filter(ok), fresh = fit.filter(x => !seen.has(itemKey(x)));
+      const it = R.pick(fresh.length ? fresh : fit.length ? fit : items);
+      seen.add(itemKey(it));
+      return it;
+    };
     const figCls = (f) => 'shape ' + (f.kind === 'strokes' ? 'letter' : 'fill-a');
     const figCenter = (f) => { const bb = Fig.bbox(f); return [bb.cx, bb.cy]; };
     function mainStage(area, f) {
@@ -945,7 +998,9 @@
       api.onReveal(() => { done = true; spinShow(st, f, false, () => api.giveUp('점대칭도형인지는 <b>180° 돌렸을 때 처음 모양과 완전히 겹치는지</b>로 정해요.')); });
     }
     function corrRound(area, api) {
-      const nm = R.pick(['평행사변형', 'Z모양', '육각평행', '번개', '바람개비', '정육각형', '직사각형', '마름모']);
+      const names = ['평행사변형', 'Z모양', '육각평행', '번개', '바람개비', '정육각형', '직사각형', '마름모'];
+      const left = names.filter(x => !seen.has('corr' + x));
+      const nm = R.pick(left.length ? left : names); seen.add('corr' + nm);
       const f = Shapes.polyShape(nm, R.pick([0, 15, 30, 45, 90])).fig;
       const P = f.pts.map(p => [p[0] * 1.05, p[1] * 1.05]), n = P.length, L = KO.slice(0, n);
       const st = new Stage(area, { x0: -5, y0: -4.4, w: 10, h: 8.8, cls: 'letter-stage' });
@@ -988,6 +1043,7 @@
      8~9차시 — 바람개비 공원 (점대칭도형 완성 + 성질)
      ========================================================= */
   function gamePinwheel(root) {
+    const quiz = TypeBag();
     let park;
     GameShell(root, {
       id: 'g9', emoji: '🌀', title: '바람개비 공원 만들기',
@@ -1000,7 +1056,8 @@
       hudExtra() { park = el('div', { class: 'park', 'aria-label': '바람개비 공원' }); return park; },
       onScore() { if (park) { const p = el('span', { class: 'pw' }, '🌀'); park.appendChild(p); } },
       makeRound(area, api) {
-        if ([2, 5, 8].includes(api.index)) symProperty(area, api, 'point');
+        if (api.index === 0) quiz.reset();
+        if ([2, 5, 8].includes(api.index)) symProperty(area, api, 'point', quiz); // 성질 퀴즈 3번은 서로 다른 유형
         else completeRound(area, api, 'point');
       },
     });
