@@ -141,6 +141,36 @@
       }
       return null;
     },
+    /** 놓인 도형 W를 목표 T에 맞추려면?
+        { congruent:false } | { congruent:true, rot: 돌려야 할 각(가장 작은 값, 도), flip: 뒤집어야만 맞는지 } */
+    fitInfo: (W, T, tol = 0.03) => {
+      const n = W.length;
+      if (n !== T.length) return { congruent: false };
+      const sig = (X) => { const A = Poly.angles(X), L = Poly.sides(X); return X.map((_, i) => [A[i], L[i]]); };
+      const a = sig(W);
+      let best = null, mirror = false;
+      for (const rev of [false, true]) {
+        const idx = T.map((_, j) => (rev ? n - 1 - j : j));
+        const b = sig(idx.map(j => T[j]));
+        for (let s = 0; s < n; s++) {
+          let ok = true;
+          for (let i = 0; i < n && ok; i++) {
+            const x = a[i], y = b[(i + s) % n];
+            if (Math.abs(x[0] - y[0]) > 0.8 || Math.abs(x[1] - y[1]) > tol * Math.max(1, x[1])) ok = false;
+          }
+          if (!ok) continue;
+          const m = W.map((_, i) => idx[(i + s) % n]);
+          const Tm = m.map(j => T[j]);
+          if (Math.sign(Poly.area2(W)) !== Math.sign(Poly.area2(Tm))) { mirror = true; continue; }
+          let rot = V.angleOf(V.sub(Tm[1], Tm[0])) - V.angleOf(V.sub(W[1], W[0]));
+          rot = ((rot + 540) % 360) - 180;
+          if (!best || Math.abs(rot) < Math.abs(best.rot)) best = { rot, map: m };
+        }
+      }
+      if (best) return { congruent: true, rot: best.rot, map: best.map, flip: false };
+      if (mirror) return { congruent: true, flip: true };
+      return { congruent: false };
+    },
     /** 단순 다각형인지(변끼리 교차하지 않는지) */
     isSimple: (P, allowCollinear) => {
       const n = P.length;

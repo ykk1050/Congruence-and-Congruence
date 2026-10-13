@@ -158,9 +158,9 @@
       id: 'g2', emoji: '🧩', title: '미술관 바닥 타일 수리',
       story: [
         { who: 'dayun', text: '앗! 미술관 바닥 타일이 깨져서 구멍이 났어요. 관람객이 걸려 넘어질 것 같아요.' },
-        { who: 'guide', text: '타일 상자에서 <b>깨진 자리에 꼭 맞는 타일</b>을 골라 손가락으로 끌어다 끼워 주세요. 모양과 크기가 같아서 <b>포개었을 때 완전히 겹치는</b> 타일만 들어가요. 돌리거나 뒤집어야 맞는 타일도 있어요.' },
+        { who: 'guide', text: '타일 상자에서 <b>깨진 자리에 꼭 맞는 타일</b>을 골라 손가락으로 끌어다 끼워 주세요. 모양과 크기가 같아서 <b>포개었을 때 완전히 겹치는</b> 타일만 들어가요. 타일을 <b>두 손가락으로 돌려</b> 깨진 자리와 방향을 맞춰야 쏙 들어가요. 뒤집어야 맞는 타일도 있어요.' },
       ],
-      mission: '깨진 자리와 <b>서로 합동인</b> 타일을 끌어서 끼워요. 바닥의 칸 수를 세어 보면 도움이 돼요!',
+      mission: '깨진 자리와 <b>서로 합동인</b> 타일을 골라, 두 손가락으로 돌려 방향을 맞춘 뒤 끌어서 끼워요. 바닥의 칸 수를 세어 보면 도움이 돼요!',
       rounds: 10, roundName: '타일',
       makeRound(area, api) {
         const W = 28, F0 = 3, F1 = 11, T0 = 11.6, H = 18.2;
@@ -234,37 +234,67 @@
           g.appendChild(sv('polygon', { points: t.local.map(p => p.join(',')).join(' '), class: 'mu-tile-edge' }));
           st.L('over').appendChild(g);
           t.node = g;
-          place(t);
         });
-        function place(t) { t.node.setAttribute('transform', `translate(${t.pos[0]} ${t.pos[1]})`); }
-        const world = (t) => t.local.map(p => V.add(p, t.pos));
+        // 타일의 상태: pos(이동), theta(돌린 각도), flip(뒤집기). 중심 c를 기준으로 돌리고 뒤집는다.
+        order.forEach(t => { t.c = Poly.centroid(t.local); t.theta = 0; t.flip = false; place(t); });
+        function place(t) {
+          const [cx, cy] = t.c;
+          t.node.setAttribute('transform', `translate(${t.pos[0] + cx} ${t.pos[1] + cy}) rotate(${t.theta}) scale(${t.flip ? -1 : 1} 1) translate(${-cx} ${-cy})`);
+        }
+        const world = (t) => t.local.map(p => {
+          let d = V.sub(p, t.c);
+          if (t.flip) d = [-d[0], d[1]];
+          return V.add(V.add(t.pos, t.c), V.rotVec(d, t.theta));
+        });
+        const center = (t) => V.add(t.pos, t.c);
         function goHome(t) {
           const from = t.pos.slice();
           animate(350, k => { t.pos = V.lerp(from, t.home, k); place(t); }, () => { t.pos = t.home.slice(); place(t); });
         }
-        function fit(t, h) {
-          const Wp = world(t), mp = Poly.congruentMap(Wp, h.pts);
-          t.used = true; h.filled = true;
-          t.node.remove();
-          const fr = isometryFrames(Wp, h.pts, mp);
-          const fly = st.poly(Wp, { class: 'shape mu-fly' }, 'top');
-          animate(fr.flip ? 1200 : 750, k => st.setPoints(fly, fr.at(k)), () => {
-            fly.remove();
+        let sel = null;
+        function select(t) {
+          if (sel) sel.node.classList.remove('sel');
+          sel = t; if (t) t.node.classList.add('sel');
+        }
+        /** 타일을 깨진 자리에 정확히 맞춰 넣기 (돌린 각도 rot만큼 마저 돌리고 자리에 끼움) */
+        function fit(t, h, rot) {
+          t.used = true; h.filled = true; select(null);
+          const th0 = t.theta, p0 = t.pos.slice(), target = V.sub(Poly.centroid(h.pts), t.c);
+          animate(Math.min(700, 250 + Math.abs(rot) * 6), k => { t.theta = th0 + rot * k; t.pos = V.lerp(p0, target, k); place(t); }, () => {
+            t.node.remove();
             h.node.setAttribute('class', 'shape mu-hole filled');
             h.grid.setAttribute('class', 'mu-hole-grid filled');
             const sp = st.circle(Poly.centroid(h.pts), 0.2, { class: 'mu-spark' }, 'top');
             animate(500, k => { sp.setAttribute('r', 0.2 + k * 2.5); sp.style.opacity = 1 - k; }, () => sp.remove());
-            if (holes.every(x => x.filled)) { if (!revealed) api.correct(fr.flip ? '뒤집어서 끼우니 딱 맞아요!' : '타일이 딱 맞게 들어갔어요!'); }
+            if (holes.every(x => x.filled)) { if (!revealed) api.correct(t.flip ? '뒤집고 돌려서 딱 맞게 끼웠어요!' : '방향을 맞춰 딱 맞게 끼웠어요!'); }
             else { Sound.good(); toast('딱 맞아요! 깨진 자리가 하나 더 있어요.', 'good'); }
           });
         }
-        let drag = null, revealed = false;
+        const TOL = 15; // 이만큼 가까이 방향을 맞추면 끼워진다
+        /** 타일을 놓았을 때: 깨진 자리 위인지, 방향이 맞는지 확인 */
+        function drop(t) {
+          const c = center(t);
+          const h = holes.find(x => !x.filled && (Poly.pointIn(x.pts, c) || V.dist(c, Poly.centroid(x.pts)) < 1.8));
+          if (!h) { if (c[1] > T0 - 0.3) goHome(t); return; } // 바닥 위에 놓으면 그 자리에 둔다
+          const info = Poly.fitInfo(world(t), h.pts);
+          if (!info.congruent) {
+            shake(st.svg); goHome(t);
+            api.wrong('이 타일은 깨진 자리와 모양이나 크기가 달라서 들어가지 않아요. 바닥의 칸 수를 세어 비교해 보세요.');
+            return;
+          }
+          if (info.flip) { Sound.tap(); toast('모양은 맞는 것 같아요! 그런데 이대로는 안 맞아요. ⇋ 뒤집기를 눌러 타일을 뒤집어 보세요.', 'info', 3200); return; }
+          if (Math.abs(info.rot) <= TOL) { fit(t, h, info.rot); return; }
+          Sound.tap(); toast(`방향이 맞지 않아요. 두 손가락으로 타일을 돌려 깨진 자리와 방향을 맞춰 보세요. (약 ${Math.round(Math.abs(info.rot) / 5) * 5}° 더)`, 'info', 3200);
+        }
+        const pick = (p) => order.slice().reverse().find(x => !x.used && (Poly.pointIn(world(x), p) || world(x).some((q, i, A) => V.distToSeg(p, q, A[(i + 1) % A.length]) < 0.45)));
+        let drag = null, gest = null, revealed = false;
         st.on({
-          tap: (p) => { if (order.some(t => !t.used && Poly.pointIn(world(t), p))) toast('타일을 손가락으로 끌어서 깨진 자리에 놓아 보세요.'); },
+          tap: (p) => { const t = pick(p); if (t) { select(t); toast('끌어서 옮기고, 두 손가락으로 돌려요. 뒤집으려면 ⇋ 뒤집기를 눌러요.'); } },
           dragStart: (p) => {
-            const t = order.slice().reverse().find(x => !x.used && (Poly.pointIn(world(x), p) || world(x).some((q, i, A) => V.distToSeg(p, q, A[(i + 1) % A.length]) < 0.45)));
+            const t = pick(p);
             if (!t) return;
             drag = { t, off: V.sub(t.pos, p) };
+            select(t);
             st.L('over').appendChild(t.node); // 맨 위로
             t.node.classList.add('lifted');
           },
@@ -274,16 +304,46 @@
             if (!drag) return;
             const t = drag.t; drag = null;
             t.node.classList.remove('lifted');
-            const Wp = world(t), c = Poly.centroid(Wp);
-            const h = holes.find(x => !x.filled && (Poly.pointIn(x.pts, c) || V.dist(c, Poly.centroid(x.pts)) < 1.8));
-            if (!h) { goHome(t); return; }
-            if (Poly.congruentMap(Wp, h.pts)) fit(t, h);
-            else { shake(st.svg); goHome(t); api.wrong('이 타일은 깨진 자리와 모양이나 크기가 달라서 들어가지 않아요. 칸 수를 세어 보세요.'); }
+            drop(t);
+          },
+          // 두 손가락: 돌리면서 옮기기
+          gestureStart: (a, b) => {
+            const t = (drag && drag.t) || pick(V.mid(a, b)) || pick(a) || pick(b) || sel;
+            drag = null;
+            if (!t || t.used) { gest = null; return; }
+            select(t); st.L('over').appendChild(t.node); t.node.classList.add('lifted');
+            gest = { t, th0: t.theta, p0: t.pos.slice() };
+          },
+          gestureMove: ({ rot, center: cNow, center0 }) => {
+            if (!gest) return;
+            gest.t.theta = gest.th0 + rot;
+            gest.t.pos = V.add(gest.p0, V.sub(cNow, center0));
+            place(gest.t);
+          },
+          gestureEnd: (cancelled) => {
+            if (!gest) return;
+            const t = gest.t; gest = null;
+            t.node.classList.remove('lifted');
+            if (!cancelled) drop(t);
           },
         });
+        // 마우스로 할 때를 위한 버튼 (선택한 타일)
+        const turn = (d) => { if (!sel || sel.used) { toast('먼저 타일을 눌러 골라요.'); return; } sel.theta += d; place(sel); drop(sel); };
+        area.appendChild(el('div', { class: 'controls tile-tools' },
+          el('span', { class: 'hint-chip' }, '✌️ 두 손가락으로 타일을 돌릴 수 있어요'),
+          btn('↺ 15°', () => turn(-15), 'secondary small'),
+          btn('↻ 15°', () => turn(15), 'secondary small'),
+          btn('⇋ 뒤집기', () => { if (!sel || sel.used) { toast('먼저 타일을 눌러 골라요.'); return; } sel.flip = !sel.flip; sel.theta = -sel.theta; place(sel); drop(sel); }, 'secondary small')));
         api.onReveal(() => {
           revealed = true;
-          holes.forEach(h => { if (h.filled) return; const t = order.find(x => x.ok && !x.used); if (t) fit(t, h); });
+          holes.forEach(h => {
+            if (h.filled) return;
+            const t = order.find(x => x.ok && !x.used);
+            if (!t) return;
+            let info = Poly.fitInfo(world(t), h.pts);
+            if (info.flip) { t.flip = !t.flip; t.theta = -t.theta; place(t); info = Poly.fitInfo(world(t), h.pts); }
+            fit(t, h, info.rot);
+          });
           setTimeout(() => api.giveUp('깨진 자리와 서로 합동인 타일이 끼워졌어요. 어떻게 돌리거나 뒤집었는지 살펴보세요.'), 1300);
         });
       },
@@ -376,6 +436,7 @@
           return;
         }
         let answer, unit;
+        const traps = {};
         if (type === 'len') {
           // P2의 변 i 길이를 보여 주고, P1의 변 i를 묻는다. 다른 변 하나는 방해용
           const j = (i + R.int(1, n - 1)) % n;
@@ -384,12 +445,14 @@
           st.line(P1[i], P1[(i + 1) % n], { class: 'given-side' }, 'top');
           q.innerHTML = `<b>변 ${sideName(L1, i)}</b>의 길이는 몇 cm일까요?`;
           answer = lenA[i]; unit = 'cm';
+          if (lenA[j] !== answer) traps[lenA[j]] = `${lenA[j]} cm는 변 ${sideName(L1, j)}의 길이예요. 변 ${sideName(L1, i)}과 겹치는 변은 다른 도형의 어느 변일까요?`;
         } else if (type === 'ang') {
           const j = (i + R.int(1, n - 1)) % n;
           angLabel(P2, i, angA[i] + '°'); angLabel(P1, j, angA[j] + '°', 'muted');
           angLabel(P1, i, '?°', 'ask');
           q.innerHTML = `<b>각 ${angName(L1, i)}</b>의 크기는 몇 도일까요?`;
           answer = angA[i]; unit = '°';
+          if (angA[j] !== answer) traps[angA[j]] = `${angA[j]}°는 각 ${angName(L1, j)}의 크기예요. 각 ${angName(L1, i)}과 겹치는 각은 다른 도형의 어느 각일까요?`;
         } else if (type === 'sum') {
           // 삼각형: 서로 다른 도형에 두 각이 주어지고 나머지 대응각을 구함
           const j = (i + 1) % 3, k2 = (i + 2) % 3;
@@ -397,6 +460,8 @@
           angLabel(P1, i, '?°', 'ask');
           q.innerHTML = `<b>각 ${angName(L1, i)}</b>의 크기는 몇 도일까요? <span class="muted">(삼각형의 세 각의 크기의 합은 180°)</span>`;
           answer = angA[i]; unit = '°';
+          [j, k2].forEach(x => { if (angA[x] !== answer) traps[angA[x]] = `${angA[x]}°는 이미 알고 있는 각의 크기예요. 두 각을 삼각형 ${L1.join('')}에 모아 놓고, 세 각의 합이 180°임을 이용해 보세요.`; });
+          traps[180 - angA[i]] = '180°에서 한 각만 뺐어요. 알고 있는 두 각을 모두 빼야 해요.';
         } else {
           // 둘레: 삼각형 P1의 둘레가 주어지고, 변 하나는 P2에, 하나는 P1에 표시
           const j = (i + 1) % 3, k2 = (i + 2) % 3;
@@ -405,12 +470,15 @@
           const per = lenA[0] + lenA[1] + lenA[2];
           q.innerHTML = `삼각형 ${L1.join('')}의 둘레는 <b>${per} cm</b>예요. <b>변 ${sideName(L1, i)}</b>의 길이는 몇 cm일까요?`;
           answer = lenA[i]; unit = 'cm';
+          [j, k2].forEach(x => { if (lenA[x] !== answer) traps[lenA[x]] = `${lenA[x]} cm는 이미 알고 있는 변의 길이예요. 둘레에서 다른 두 변의 길이를 빼 보세요.`; });
+          traps[per] = '둘레 전체를 썼어요. 둘레에서 다른 두 변의 길이를 빼야 해요.';
+          traps[per - lenA[j]] = traps[per - lenA[k2]] = '둘레에서 한 변만 뺐어요. 다른 두 변의 길이를 모두 빼야 해요.';
         }
         let done = false;
         keypad(ansBox, (v, reset) => {
           if (done) return;
           if (v === answer) { done = true; api.correct(`대응${unit === 'cm' ? '변의 길이' : '각의 크기'}가 같아요!`); }
-          else { reset(); api.wrong(unit === 'cm' ? '구하려는 변의 대응변을 먼저 찾아보세요.' : '구하려는 각의 대응각을 먼저 찾아보세요.'); }
+          else { reset(); api.wrong(traps[v] || (unit === 'cm' ? `${v} cm는 아니에요. 구하려는 변의 대응변을 먼저 찾아보세요.` : `${v}°는 아니에요. 구하려는 각의 대응각을 먼저 찾아보세요.`)); }
         }, unit);
         api.onReveal(() => { done = true; api.giveUp(`정답: <b>${answer}${unit === 'cm' ? ' cm' : '°'}</b>`); });
       },
@@ -505,6 +573,7 @@
     const types = isLine ? ['side', 'angle', 'dist', 'perp'] : ['side', 'angle', 'half', 'whole'];
     const type = R.pick(types);
     let answer, unit = 'cm';
+    const traps = {};
     if (type === 'side') {
       // 변 i(i→i+1)의 대응변: corr(i)–corr(i+1)
       const i2 = (i + 1) % n, j2 = corr(i2);
@@ -537,6 +606,7 @@
       } else {
         q.innerHTML = `대응점끼리 이은 <b>선분 ${L[i]}${L[j]}</b>과 대칭축이 만나서 이루는 각은 몇 도일까요?`;
         answer = 90; unit = '°';
+        traps[180] = '180°는 두 선이 일직선일 때예요. 선분과 대칭축은 만나서 꺾여 있어요.'; traps[45] = '45°는 직각의 절반이에요. 만나는 곳의 표시를 살펴보세요.';
       }
       const s = st.clipLine(a2, b2, 0.4);
       if (s) { st.text(V.add(s[0], [0.45, 0.2]), extra[1], { class: 'vlabel axis-lbl' }); st.text(V.add(s[1], [0.45, -0.2]), extra[2], { class: 'vlabel axis-lbl' }); }
@@ -548,17 +618,19 @@
         st.dimArc(P[i], o2, '? cm', null, { cls: 'ask', flip: true });
         q.innerHTML = `선분 ${L[i]}${L[j]}의 길이는 <b>${2 * half} cm</b>예요. <b>선분 ${L[i]}${extra[0]}</b>의 길이는 몇 cm일까요?`;
         answer = half;
+        traps[2 * half] = `${2 * half} cm는 선분 ${L[i]}${L[j]} <b>전체</b>의 길이예요. 대칭의 중심 ${extra[0]}까지는 그중 일부분이에요.`;
       } else {
         st.dimArc(P[i], o2, half + ' cm', null);
         st.dimArc(P[i], P[j], '? cm', null, { cls: 'ask', flip: true });
         q.innerHTML = `선분 ${L[i]}${extra[0]}의 길이가 <b>${half} cm</b>일 때, <b>선분 ${L[i]}${L[j]}</b>의 길이는 몇 cm일까요?`;
         answer = 2 * half;
+        traps[half] = `${half} cm는 선분 ${L[i]}${extra[0]}의 길이예요. 선분 ${L[i]}${L[j]}은 대칭의 중심을 지나 반대쪽 대응점까지 이어진 <b>전체</b> 선분이에요.`;
       }
     }
     let done = false;
     keypad(ans, (v, reset) => {
       if (done) return;
-      if (v === answer) { done = true; api.correct(isLine ? '선대칭도형의 성질을 잘 이용했어요!' : '점대칭도형의 성질을 잘 이용했어요!'); }
+      if (v === answer) { done = true; return api.correct(isLine ? '선대칭도형의 성질을 잘 이용했어요!' : '점대칭도형의 성질을 잘 이용했어요!'); }
       else {
         reset();
         const hint = {
@@ -566,7 +638,7 @@
           dist: '대응점에서 대칭축까지의 거리는 같아요.', perp: '대응점끼리 이은 선분은 대칭축과 수직으로 만나요.',
           half: '대칭의 중심은 대응점끼리 이은 선분을 똑같이 둘로 나눠요.', whole: '대칭의 중심까지의 거리가 같은 두 선분을 더해요.',
         }[type];
-        api.wrong(hint);
+        api.wrong(traps[v] || `${v}${unit === 'cm' ? ' cm' : '°'}는 아니에요. ${hint}`);
       }
     }, unit);
     api.onReveal(() => { done = true; api.giveUp(`정답: <b>${answer}${unit === 'cm' ? ' cm' : '°'}</b>`); });
@@ -801,7 +873,7 @@
         { who: 'seung', text: '교통안전 체험관에 새 표지판과 글자판이 잔뜩 도착했어요. 체험관을 열기 전에 정리해야 해요!' },
         { who: 'guide', text: '표지판을 손가락으로 끌어 <b>선대칭도형만</b>, <b>점대칭도형만</b>, <b>둘 다</b>, <b>둘 다 아님</b> 보관함에 넣어 주세요. 선대칭도형이면서 점대칭도형인 것은 “둘 다” 보관함이에요.' },
       ],
-      mission: '대칭축이 있는지, 180° 돌렸을 때 겹치는지 생각해서 표지판을 알맞은 보관함으로 끌어 넣어요.',
+      mission: '대칭축이 있는지, 180° 돌렸을 때 겹치는지 생각해서 표지판을 알맞은 보관함으로 끌어 넣어요. 두 손가락으로 표지판을 돌려 볼 수도 있어요.',
       rounds: 15, roundName: '표지판',
       makeRound(area, api) {
         if (api.index === 0) sorted = { line: [], point: [], both: [], none: [] };
@@ -836,8 +908,8 @@
         }));
         // 새 표지판
         const sign = drawSign(st, it, 'over');
-        let pos = HOME.slice(), scale = K, drag = null, done = false;
-        const put = () => sign.setAttribute('transform', `translate(${pos[0]} ${pos[1]}) scale(${scale})`);
+        let pos = HOME.slice(), scale = K, rot = 0, drag = null, g0 = null, done = false;
+        const put = () => sign.setAttribute('transform', `translate(${pos[0]} ${pos[1]}) rotate(${rot}) scale(${scale})`);
         put();
         const fly = (bin, then) => {
           const from = pos.slice(), s0 = scale, to = slot(bin, sorted[bin.key].length);
@@ -864,17 +936,24 @@
           dragStart: (p) => { if (!done && V.dist(p, pos) < 3) { drag = V.sub(pos, p); sign.classList.add('lifted'); } },
           dragMove: (p) => { if (drag) { pos = V.add(p, drag); put(); } },
           dragCancel: () => { if (drag) { drag = null; sign.classList.remove('lifted'); back(); } },
+          // 두 손가락으로 표지판을 돌려 볼 수 있어요 (180° 돌려 보기)
+          gestureStart: () => { if (done) return; drag = null; g0 = { rot, pos: pos.slice() }; sign.classList.add('lifted'); },
+          gestureMove: ({ rot: r, center, center0 }) => { if (!g0) return; rot = g0.rot + r; pos = V.add(g0.pos, V.sub(center, center0)); put(); },
+          gestureEnd: () => { if (!g0) return; g0 = null; sign.classList.remove('lifted'); if (pos[1] > 11.4) dropAt(pos); },
           dragEnd: (p) => {
             if (!drag) return;
             drag = null; sign.classList.remove('lifted');
+            dropAt(p);
+          },
+        });
+        function dropAt(p) {
             const bin = bins.find(b => p[0] >= b.x && p[0] <= b.x + b.w && p[1] >= b.y - 0.8);
             if (!bin) { back(); return; }
             if (bin.key === type) { Sound.good(); finishTo(true); return; }
             bin.g.classList.add('wrong'); setTimeout(() => bin.g.classList.remove('wrong'), 700);
             back(); api.wrong(`‘${bin.label}’ 보관함이 아니에요. 대칭축과 180° 돌리기를 다시 생각해 보세요.`);
             if (api.tries >= 2) finishTo(false);
-          },
-        });
+        }
         api.onReveal(() => { if (!done) finishTo(false); });
       },
     });

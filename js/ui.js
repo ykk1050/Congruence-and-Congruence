@@ -109,7 +109,18 @@
           cfg.onDone && cfg.onDone(wrong === 0);
         } else {
           wrong++; Sound.bad(); shake(list);
-          fb.className = 'fb bad'; fb.innerHTML = cfg.hint || '빠진 것이나 잘못 고른 것이 있어요.';
+          // 학생이 실제로 고른 것(또는 빠뜨린 것)에 맞춘 피드백
+          const msgs = [];
+          if (picked.size === 0) msgs.push('알맞은 것을 골라 보세요.');
+          cfg.options.forEach((o, i) => {
+            if (!o.ok && picked.has(i)) {
+              buttons[i].classList.add('wrong'); setTimeout(() => buttons[i].classList.remove('wrong'), 1500);
+              msgs.push(o.why ? o.why : `‘${o.t}’은(는) 알맞지 않아요.`);
+            }
+          });
+          const missed = cfg.options.filter((o, i) => o.ok && !picked.has(i)).length;
+          if (missed && picked.size) msgs.push(cfg.missText ? cfg.missText(missed) : `알맞은 것이 <b>${missed}개</b> 더 있어요.`);
+          fb.className = 'fb bad'; fb.innerHTML = msgs.join('<br>');
         }
       }, 'primary small'));
     }
@@ -122,6 +133,26 @@
      빈칸 채우기(개념 정리 문장)
      parts: ['문장', {ans:'정답'}, '문장', ...], chips: [...]
      ========================================================= */
+  /** 빈칸에 잘못 넣은 말에 대한 설명 (넣은 말 > 정답 순서로 찾음) */
+  const WORD_WHY = {
+    '대응각>대응변': '‘대응각’은 각이라서 <b>길이</b>가 아니라 크기(각도)를 재요. 길이를 비교하는 것은 무엇일까요?',
+    '대응변>대응각': '‘대응변’은 변이라서 <b>크기(각도)</b>가 아니라 길이를 재요. 각도를 비교하는 것은 무엇일까요?',
+    '대응점': '‘대응점’은 겹치는 <b>점</b>이에요. 점에는 길이나 크기가 없어요.',
+    '넓이': '‘넓이’는 이 문장에 어울리지 않아요. 포개었을 때 겹치는 변과 각을 떠올려 보세요.',
+    '대칭축': '‘대칭축’은 선대칭도형을 <b>접는 직선</b>이에요. 이 빈칸에 들어갈 말인지 다시 읽어 보세요.',
+    '대칭의 중심': '‘대칭의 중심’은 점대칭도형을 <b>180° 돌리는 중심점</b>이에요. 이 빈칸에 들어갈 말인지 다시 읽어 보세요.',
+    '평행>수직': '대응점끼리 이은 선분은 대칭축과 <b>만나요</b>. 평행한 두 선은 만나지 않아요. 만나서 이루는 각(직각 표시)을 보세요.',
+    '다릅니다>같습니다': '대응점에서 대칭축까지 모눈 몇 칸인지 양쪽을 세어 비교해 보세요.',
+    '다르게>똑같이': '대칭의 중심에서 양쪽 대응점까지의 거리를 비교해 보세요.',
+    '합동': '‘합동’은 두 도형을 <b>포개었을 때</b> 완전히 겹치는 것을 말해요.',
+    '선대칭도형': '‘선대칭도형’은 한 직선을 따라 <b>접었을 때</b> 완전히 겹치는 도형이에요.',
+    '점대칭도형': '‘점대칭도형’은 어떤 점을 중심으로 <b>180° 돌렸을 때</b> 완전히 겹치는 도형이에요.',
+    '수직': '‘수직’은 두 선이 만나는 <b>모양</b>을 나타내는 말이에요. 이 빈칸에는 다른 말이 들어가요.',
+    '같습니다': '‘같습니다’는 길이나 거리를 비교하는 말이에요. 이 빈칸에는 두 선이 만나는 모양을 나타내는 말이 들어가요.',
+    '똑같이': '‘똑같이’는 나누는 방법을 나타내는 말이에요. 이 빈칸에는 다른 말이 들어가요.',
+  };
+  function wordWhy(val, ans) { return WORD_WHY[val + '>' + ans] || WORD_WHY[val] || `‘${val}’은(는) 이 빈칸에 알맞지 않아요.`; }
+
   function fillBlank(box, cfg) {
     const wrap = el('div', { class: 'fill' });
     const sentence = el('div', { class: 'sentence' });
@@ -157,7 +188,12 @@
       if (ok) {
         Sound.good(); fb.className = 'fb good'; fb.innerHTML = cfg.good || '정리 완료! 아주 잘했어요.';
         check.disabled = true; cfg.onDone && cfg.onDone(tries === 1);
-      } else { Sound.bad(); fb.className = 'fb bad'; fb.innerHTML = cfg.hint || '빨간 빈칸을 눌러 지우고 다시 골라 보세요.'; }
+      } else {
+        Sound.bad(); fb.className = 'fb bad';
+        const msgs = [];
+        blanks.forEach(b => { if (b.dataset.val !== b.dataset.ans) { const m = wordWhy(b.dataset.val, b.dataset.ans); if (!msgs.includes(m)) msgs.push(m); } });
+        fb.innerHTML = msgs.join('<br>') + '<br><span class="muted">빨간 빈칸을 눌러 지우고 다시 골라 보세요.</span>';
+      }
     }, 'primary small');
     if (blanks[0]) { blanks[0].classList.add('active'); active = blanks[0]; }
     wrap.append(sentence, chips, check, fb);
@@ -241,17 +277,24 @@
         S.lblG.appendChild(sv('text', { x: z[0], y: z[1], 'text-anchor': 'middle', 'dominant-baseline': 'central', class: 'vlabel' + (S.snapped ? ' ghost-lbl' : '') }, figs[mv].labels[i]));
       });
     }
+    const rotM = (deg) => { const r = deg * Math.PI / 180, c = Math.cos(r), n = Math.sin(r); return [[c, -n], [n, c]]; };
+    /** 옮긴 도형이 목표 도형 위에 있으면: 방향이 거의 맞을 때(15° 이내) 딱 맞게 포개 준다 */
     function snapCheck(quiet) {
       const T = figs[onto].pts, cT = Poly.centroid(T);
       if (V.dist(S.pos, cT) > 1.6) { S.snapped = false; mvApply(); return; }
-      const P = S.base.map(p => mvPt(p, cT));
-      if (P.every(q => T.some(t => V.dist(q, t) < 0.2))) {
+      const info = Poly.fitInfo(S.base.map(p => mvPt(p, cT)), T);
+      if (info.congruent && !info.flip && Math.abs(info.rot) <= 15) {
+        S.M = mul2(rotM(info.rot), S.M);
         S.pos = cT.slice(); S.snapped = true; mvApply(); Sound.good();
         fb.className = 'fb good'; fb.innerHTML = '<b>완전히 겹쳐요!</b> 겹친 점·변·각을 살펴보고 아래 물음에 답해 보세요.';
-      } else {
-        S.snapped = false; mvApply();
-        if (!quiet) { Sound.tap(); fb.className = 'fb bad'; fb.innerHTML = '겹치지 않는 부분이 있어요. <b>돌리기</b>나 <b>뒤집기</b>를 해 보세요.'; }
+        return;
       }
+      S.snapped = false; mvApply();
+      if (quiet) return;
+      Sound.tap(); fb.className = 'fb bad';
+      if (info.congruent && info.flip) fb.innerHTML = '이대로는 겹치지 않아요. <b>⇋ 뒤집기</b>를 눌러 도형을 뒤집어 보세요.';
+      else if (info.congruent) fb.innerHTML = `방향이 맞지 않아요. <b>두 손가락으로</b> 도형을 돌리거나 <b>↻ 돌리기</b>를 눌러 방향을 맞춰 보세요. (약 ${Math.round(Math.abs(info.rot) / 5) * 5}° 더)`;
+      else fb.innerHTML = '겹치지 않는 부분이 있어요.';
     }
     if (S) {
       mvApply();
@@ -264,9 +307,13 @@
         dragMove: (p) => { if (dragOff) { S.pos = V.add(p, dragOff); mvApply(); } },
         dragEnd: () => { if (dragOff) { dragOff = null; snapCheck(); } },
         dragCancel: () => { if (dragOff) { dragOff = null; snapCheck(true); } },
+        // 두 손가락으로 돌리면서 옮기기
+        gestureStart: () => { dragOff = null; S.g0 = { M: S.M, pos: S.pos.slice() }; S.snapped = false; },
+        gestureMove: ({ rot, center, center0 }) => { if (!S.g0) return; S.M = mul2(rotM(rot), S.g0.M); S.pos = V.add(S.g0.pos, V.sub(center, center0)); mvApply(); },
+        gestureEnd: (cancelled) => { if (!S.g0) return; S.g0 = null; snapCheck(cancelled); },
       });
       ctrl.append(
-        el('span', { class: 'hint-chip' }, '✋ 도형을 손가락으로 끌어 포개어 보세요'),
+        el('span', { class: 'hint-chip' }, '✋ 끌어서 옮기고 ✌️ 두 손가락으로 돌려요'),
         btn('↻ 돌리기', () => { S.M = mul2([[0, -1], [1, 0]], S.M); S.snapped = false; snapCheck(true); }, 'secondary small'),
         btn('⇋ 뒤집기', () => { S.M = mul2([[-1, 0], [0, 1]], S.M); S.snapped = false; snapCheck(true); }, 'secondary small'),
         btn('⟲ 제자리', () => { S.M = [[1, 0], [0, 1]]; S.pos = S.c0.slice(); S.snapped = false; mvApply(); fb.className = 'fb'; fb.textContent = ''; }, 'ghost small'));
@@ -358,6 +405,34 @@
       }
       log.appendChild(el('div', { class: 'row', html: `<i style="background:${color}"></i>${text}` }));
     }
+    /** 입력한 답에 맞춘 오답 피드백 */
+    const gidOf = (t) => labelOf.indexOf(t);
+    const isEdge = (a, b) => a >= 0 && b >= 0 && figOf[a][0] === figOf[b][0] && (() => { const n = figs[figOf[a][0]].pts.length, d = Math.abs(figOf[a][1] - figOf[b][1]); return d === 1 || d === n - 1; })();
+    function tip(q) {
+      if (cfg.hintText) return cfg.hintText(q);
+      return mv >= 0 ? '도형을 끌어 포개어 보면 어디와 겹치는지 알 수 있어요.' : '';
+    }
+    function diagnose(q, E, want, typed) {
+      const g = q.given, gn = givenName(q), twoFigs = figs.length > 1;
+      const sameFig = (t) => twoFigs && gidOf(t) >= 0 && figOf[gidOf(t)][0] === figOf[g[0]][0];
+      if (q.type === 'point') {
+        if (typed === gn) return '문제에 나온 점을 그대로 썼어요. 겹치는 <b>다른</b> 점을 찾아요.';
+        if (sameFig(typed)) return `점 ${typed}은 점 ${gn}과 <b>같은 도형</b>에 있는 점이에요. 대응점은 다른 도형에서 찾아요.`;
+        return `점 ${typed}은 점 ${gn}과 겹치지 않아요. ${tip(q)}`;
+      }
+      const ids = E.map(gidOf);
+      if (typed === gn || typed === gn.split('').reverse().join('')) return `문제에 나온 ${KIND[q.type]}을 그대로 썼어요. 겹치는 <b>다른</b> ${KIND[q.type]}을 찾아요.`;
+      if (q.type === 'side') {
+        if (!isEdge(ids[0], ids[1])) return `${E.join('')}은 도형의 변이 아니에요. 변은 <b>이웃한 두 꼭짓점</b>의 이름으로 읽어요.`;
+        if (sameFig(E[0])) return `변 ${typed}은 변 ${gn}과 <b>같은 도형</b>의 변이에요. 대응변은 다른 도형에서 찾아요.`;
+        const hit = E.filter(t => want.includes(t));
+        if (hit.length === 1) return `점 ${hit[0]}은 맞았어요. 변 ${gn}의 양 끝 점(점 ${L(g[0])}, 점 ${L(g[1])})이 각각 어느 점과 겹치는지 생각해 보세요.`;
+        return `변 ${typed}은 변 ${gn}과 겹치지 않아요. ${tip(q)}`;
+      }
+      if (!isEdge(ids[0], ids[1]) || !isEdge(ids[1], ids[2]) || E[0] === E[2]) return `${E.join('')}은 도형의 각 이름이 될 수 없어요. 각은 <b>이웃한 세 꼭짓점</b>을 차례로 읽고, 가운데에 꼭짓점을 써요.`;
+      if (sameFig(E[1])) return `각 ${typed}은 각 ${gn}과 <b>같은 도형</b>의 각이에요. 대응각은 다른 도형에서 찾아요.`;
+      return `각 ${typed}의 꼭짓점(가운데 글자 ${E[1]})이 맞지 않아요. 점 ${L(g[1])}과 겹치는 점이 가운데에 와야 해요. ${tip(q)}`;
+    }
     function check() {
       const q = cur(), want = answerSeq(q);
       const same = (a, b) => a.length === b.length && a.every((x, i) => x === b[i]);
@@ -373,10 +448,7 @@
       }
       wrong++; totalWrong++; Sound.bad(); shake(ansRow);
       const typed = entered.join('');
-      let msg;
-      if (q.type === 'point' && typed === givenName(q)) msg = '문제에 나온 점을 그대로 썼어요. 겹치는 <b>다른</b> 점을 찾아요.';
-      else if (q.type === 'angle' && entered[1] !== want[1]) msg = `각을 읽을 때 <b>가운데 글자</b>는 꼭짓점이에요. 점 ${L(q.given[1])}의 대응점이 가운데에 와야 해요.`;
-      else msg = cfg.hintText ? cfg.hintText(q) : (mv >= 0 ? '도형을 끌어 포개어 보면 어디와 겹치는지 알 수 있어요.' : '다시 생각해 보세요.');
+      const msg = diagnose(q, entered, want, typed);
       entered = [];
       if (wrong >= 3) {
         qfb.className = 'fb info'; qfb.innerHTML = `정답은 <b>${KIND[q.type]} ${want.join('')}</b>이에요.`;

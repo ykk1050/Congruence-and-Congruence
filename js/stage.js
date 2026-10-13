@@ -36,41 +36,78 @@
       return r.width ? Math.max(this.o.w / r.width, this.o.h / r.height) : 0.05;
     }
 
+    /* 한 손가락: tap / dragStart·dragMove·dragEnd(·dragCancel)
+       두 손가락: gestureStart(a, b) / gestureMove({ rot, center, center0 }) / gestureEnd()
+       (gestureStart 처리기가 있는 무대에서만 두 손가락 회전을 쓴다) */
     _bindPointer() {
-      let start = null, dragging = false, id = null;
-      // 진행 중이던 입력을 취소(두 번째 손가락, 손바닥 터치, 포인터 종료 신호 유실 대비)
+      let start = null, dragging = false, id = null, id2 = null, mode = null, g0 = null;
+      const pts = new Map(), seen = new Map();
+      const H = this.handlers;
+      const reset = () => { id = null; id2 = null; start = null; dragging = false; mode = null; g0 = null; pts.clear(); };
+      // 진행 중이던 입력을 취소(손바닥 터치, 포인터 종료 신호 유실 대비)
       const cancel = () => {
-        if (id !== null && dragging && this.handlers.dragCancel) this.handlers.dragCancel();
-        id = null; start = null; dragging = false;
+        if (mode === 'single' && dragging && H.dragCancel) H.dragCancel();
+        if (mode === 'gesture' && H.gestureEnd) H.gestureEnd(true);
+        reset();
       };
+      // 손가락이 아직 화면에 있는지: 포인터 캡처가 살아 있거나 최근 2초 안에 움직임이 있었는지
+      const held = (pid) => { let c = false; try { c = this.svg.hasPointerCapture(pid); } catch (err) { c = false; } return c || (Date.now() - (seen.get(pid) || 0) < 2000); };
       this.svg.addEventListener('pointerdown', (e) => {
+        const p = this.pt(e);
+        seen.set(e.pointerId, Date.now());
+        // 두 번째 손가락: 첫 손가락이 아직 화면에 있으면 회전 제스처 시작
+        if (mode === 'single' && e.pointerId !== id && H.gestureStart && held(id)) {
+          id2 = e.pointerId; pts.set(id2, p);
+          try { this.svg.setPointerCapture(id2); } catch (err) { /* noop */ }
+          const a = pts.get(id) || start;
+          mode = 'gesture';
+          g0 = { ang: V.angleOf(V.sub(p, a)), center: V.mid(a, p) };
+          H.gestureStart(a, p, { wasDragging: dragging });
+          return;
+        }
+        if (mode === 'wait' && [...pts.keys()].some(held)) return; // 제스처가 끝난 뒤 남은 손가락은 무시
         // 이전 입력이 끝나지 않은 채 남아 있으면 그 입력을 버리고 새로 시작한다.
         // (예전에는 여기서 새 입력을 무시해 화면이 ‘잠기는’ 문제가 있었음)
-        if (id !== null) cancel();
-        id = e.pointerId; start = this.pt(e); dragging = false;
+        if (mode) cancel();
+        id = e.pointerId; start = p; dragging = false; mode = 'single'; pts.set(id, p);
         try { this.svg.setPointerCapture(id); } catch (err) { /* noop */ }
-        if (this.handlers.down) this.handlers.down(start, e);
+        if (H.down) H.down(start, e);
       });
       this.svg.addEventListener('pointermove', (e) => {
-        if (e.pointerId !== id || !start) return;
+        if (!pts.has(e.pointerId)) return;
         const p = this.pt(e);
+        pts.set(e.pointerId, p); seen.set(e.pointerId, Date.now());
+        if (mode === 'gesture') {
+          const a = pts.get(id), b = pts.get(id2);
+          let rot = V.angleOf(V.sub(b, a)) - g0.ang;
+          rot = ((rot + 540) % 360) - 180;
+          if (H.gestureMove) H.gestureMove({ rot, center: V.mid(a, b), center0: g0.center });
+          return;
+        }
+        if (mode !== 'single' || e.pointerId !== id) return;
         if (!dragging && V.dist(p, start) / this.unitPerPx() > 8) {
           dragging = true;
-          if (this.handlers.dragStart) this.handlers.dragStart(start, e);
+          if (H.dragStart) H.dragStart(start, e);
         }
-        if (dragging && this.handlers.dragMove) this.handlers.dragMove(p, start, e);
+        if (dragging && H.dragMove) H.dragMove(p, start, e);
       });
       const up = (e) => {
+        if (!pts.has(e.pointerId)) return;
+        if (mode === 'gesture') {
+          if (H.gestureEnd) H.gestureEnd(false);
+          mode = 'wait';
+        }
+        if (mode === 'wait') { pts.delete(e.pointerId); if (!pts.size) reset(); return; }
         if (e.pointerId !== id) return;
         const p = this.pt(e);
-        if (dragging) { if (this.handlers.dragEnd) this.handlers.dragEnd(p, start, e); }
-        else if (this.handlers.tap) this.handlers.tap(start, e);
-        id = null; start = null; dragging = false;
+        if (dragging) { if (H.dragEnd) H.dragEnd(p, start, e); }
+        else if (H.tap) H.tap(start, e);
+        reset();
       };
       this.svg.addEventListener('pointerup', up);
-      this.svg.addEventListener('pointercancel', (e) => { if (e.pointerId === id) cancel(); });
+      this.svg.addEventListener('pointercancel', (e) => { if (pts.has(e.pointerId)) { if (mode === 'wait') up(e); else cancel(); } });
       // 화면 밖에서 손가락을 뗀 경우에도 입력을 끝낸다
-      this.svg.addEventListener('lostpointercapture', (e) => { if (e.pointerId === id) up(e); });
+      this.svg.addEventListener('lostpointercapture', (e) => { if (pts.has(e.pointerId)) up(e); });
     }
     /** 길이 표시: 두 점을 잇는 호 모양 점선과 그 위의 값
         away: 호가 볼록하게 나갈 반대쪽 기준점(보통 도형의 중심) */

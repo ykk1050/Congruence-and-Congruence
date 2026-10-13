@@ -43,7 +43,7 @@
       if (done || input.value === '') return;
       tries++;
       if (Number(input.value) === cfg.answer) { done = true; Sound.good(); input.classList.add('right'); fb.className = 'fb good'; fb.innerHTML = cfg.good || '맞아요!'; input.disabled = true; cfg.onDone && cfg.onDone(); }
-      else { Sound.bad(); shake(input); fb.className = 'fb bad'; fb.innerHTML = tries >= 3 ? `${cfg.hint} <br>정답은 <b>${cfg.answer}${cfg.unit}</b>이에요.` : cfg.hint; if (tries >= 3) { done = true; input.disabled = true; cfg.onDone && cfg.onDone(); } }
+      else { const v = Number(input.value), m = (cfg.traps && cfg.traps[v]) || cfg.hint; Sound.bad(); shake(input); fb.className = 'fb bad'; fb.innerHTML = tries >= 3 ? `${m} <br>정답은 <b>${cfg.answer}${cfg.unit}</b>이에요.` : m; if (tries >= 3) { done = true; input.disabled = true; cfg.onDone && cfg.onDone(); } }
     };
     input.addEventListener('keydown', e => { if (e.key === 'Enter') go(); });
     wrap.append(el('div', { class: 'q', html: cfg.q }), el('div', { class: 'num-row' }, input, el('span', { class: 'unit' }, cfg.unit), btn('확인', go, 'primary small')), fb);
@@ -191,7 +191,7 @@
         }, 'chip')));
       },
       (c) => {
-        c.say('<b>디지털 투명 종이</b>(분홍색)에 도형 가를 그려 두었어요. 투명 종이를 손가락으로 끌어 다른 도형 위에 포개어 보세요. 필요하면 <b>돌리기</b>·<b>뒤집기</b>를 눌러요.', 'guide');
+        c.say('<b>디지털 투명 종이</b>(분홍색)에 도형 가를 그려 두었어요. 투명 종이를 손가락으로 끌어 다른 도형 위에 포개어 보세요. <b>두 손가락</b>으로 돌릴 수 있고, 필요하면 <b>뒤집기</b>를 눌러요.', 'guide');
         const area = c.area();
         const st = new Stage(area, { x0: 0, y0: 0, w: 30, h: 9 });
         st.svg.classList.add('tappable');
@@ -201,21 +201,28 @@
         const paper = st.poly(rel.map(p => V.add(p, pos)), { class: 'tracing' }, 'over');
         const upd = () => st.setPoints(paper, rel.map(p => V.add(p, pos)));
         const fb = el('div', { class: 'fb' });
+        let g0 = null;
         st.on({
           dragStart: (p) => { if (Poly.pointIn(rel.map(q => V.add(q, pos)), p) || V.dist(p, pos) < 1.6) drag = V.sub(pos, p); },
           dragMove: (p) => { if (drag) { pos = V.add(p, drag); upd(); } },
           dragEnd: () => { if (!drag) return; drag = null; check(); },
+          // 두 손가락으로 투명 종이를 돌리면서 옮기기
+          gestureStart: () => { drag = null; g0 = { rel: rel.map(p => p.slice()), pos: pos.slice() }; paper.classList.remove('match'); },
+          gestureMove: ({ rot, center, center0 }) => { if (!g0) return; rel = g0.rel.map(p => V.rotVec(p, rot)); pos = V.add(g0.pos, V.sub(center, center0)); upd(); },
+          gestureEnd: () => { if (!g0) return; g0 = null; check(); },
         });
         function check() {
           for (const k of ['나', '다', '라', '마']) {
             const Q = shapes[k], cq = Poly.centroid(Q);
             if (V.dist(pos, cq) > 1.3) continue;
-            const W = rel.map(p => V.add(p, cq));
-            const same = W.every(w => Q.some(q => V.dist(q, w) < 0.3));
-            if (same) {
-              pos = cq; upd(); paper.classList.add('match'); Sound.good();
+            const info = Poly.fitInfo(rel.map(p => V.add(p, cq)), Q);
+            if (info.congruent && !info.flip && Math.abs(info.rot) <= 15) {
+              rel = rel.map(p => V.rotVec(p, info.rot)); pos = cq; upd(); paper.classList.add('match'); Sound.good();
               fb.className = 'fb good'; fb.innerHTML = `도형 가와 도형 <b>${k}</b>는 <b>완전히 겹쳐요!</b>`;
               if (k === '라' && !matched) { matched = true; c.done(); }
+            } else if (info.congruent) {
+              paper.classList.remove('match'); Sound.tap();
+              fb.className = 'fb'; fb.innerHTML = info.flip ? `도형 ${k}와 겹칠 것 같나요? 이대로는 안 겹쳐요. <b>뒤집기</b>를 해 보세요.` : `도형 ${k}와 방향이 맞지 않아요. <b>두 손가락으로</b> 투명 종이를 돌려 방향을 맞춰 보세요.`;
             } else {
               paper.classList.remove('match'); Sound.tap();
               fb.className = 'fb bad'; fb.innerHTML = `도형 ${k}와는 겹치지 않는 부분이 있어요. 돌리거나 뒤집어도 겹치지 않으면 모양이나 크기가 다른 거예요.`;
@@ -315,11 +322,11 @@
           options: [
             { t: '모눈의 칸 수를 세어 변의 길이(원은 지름)를 비교했어요.', ok: true },
             { t: '삼각형, 사각형, 원처럼 같은 모양끼리 모은 뒤 크기를 비교했어요.', ok: true },
-            { t: '놓인 방향이 같은 도형끼리 골랐어요.' },
-            { t: '도형의 이름 글자가 비슷한 것끼리 골랐어요.' },
+            { t: '놓인 방향이 같은 도형끼리 골랐어요.', why: '‘놓인 방향이 같은 도형끼리’는 알맞지 않아요. 도형 가와 차처럼 놓인 방향이 달라도 돌리거나 뒤집어 포개어 완전히 겹치면 합동이에요.' },
+            { t: '도형의 이름 글자가 비슷한 것끼리 골랐어요.', why: '‘이름 글자’는 알맞지 않아요. 가, 나, 다 같은 이름은 모양이나 크기와 관계가 없어요.' },
           ],
           good: '좋아요! 놓인 방향이 달라도 돌리거나 뒤집어 포개어 완전히 겹치면 서로 합동이에요.',
-          hint: '놓인 방향은 합동과 관계가 없어요. 다시 골라 보세요.',
+          missText: () => '알맞은 방법이 하나 더 있어요. 모양이 같은 도형끼리 먼저 모아 보는 방법도 생각해 보세요.',
           onDone: () => { conceptCard(c.box, '서로 합동인 도형 찾기', '모양이 같은 도형끼리 모은 다음, <b>모눈의 칸 수</b>를 세어 변의 길이(원은 지름)가 같은지 비교해요.<br>도형 가와 차처럼 <b>돌리거나 뒤집은 모양</b>도 서로 합동이에요.'); c.done(); },
         });
       },
@@ -401,11 +408,11 @@
       (c) => {
         c.say('두 도형은 서로 합동이에요. 그림은 실제 크기와 다를 수 있으니 <b>합동인 도형의 성질</b>을 이용해 구해요.', 'guide');
         const st = new Stage(c.area(), { x0: 0, y0: 0, w: 17.6, h: 7.4 }); figure(st, 'len');
-        numQuestion(c.box, { q: `<b>변 ${LA[1]}${LA[2]}</b>의 길이는 몇 cm일까요?`, answer: len[1], unit: 'cm', hint: `변 ${LA[1]}${LA[2]}의 대응변을 오른쪽 도형에서 찾아보세요.`, good: `변 ${LA[1]}${LA[2]}의 대응변은 변 ${LB[1]}${LB[2]}이므로 ${len[1]} cm예요.`, onDone: c.done });
+        numQuestion(c.box, { q: `<b>변 ${LA[1]}${LA[2]}</b>의 길이는 몇 cm일까요?`, answer: len[1], unit: 'cm', hint: `변 ${LA[1]}${LA[2]}의 대응변을 오른쪽 도형에서 찾아보세요.`, traps: { [len[2]]: `${len[2]} cm는 변 ${LB[2]}${LB[3]}의 길이예요. 변 ${LA[1]}${LA[2]}과 겹치는 변은 어느 것인지 다시 찾아보세요.` }, good: `변 ${LA[1]}${LA[2]}의 대응변은 변 ${LB[1]}${LB[2]}이므로 ${len[1]} cm예요.`, onDone: c.done });
       },
       (c) => {
         const st = new Stage(c.area(), { x0: 0, y0: 0, w: 17.6, h: 7.4 }); figure(st, 'ang');
-        numQuestion(c.box, { q: `<b>각 ${LB[1]}${LB[2]}${LB[3]}</b>의 크기는 몇 도일까요?`, answer: angA[2], unit: '°', hint: `각 ${LB[1]}${LB[2]}${LB[3]}의 대응각을 왼쪽 도형에서 찾아보세요.`, good: `대응각인 각 ${LA[1]}${LA[2]}${LA[3]}의 크기와 같으므로 ${angA[2]}°예요.`, onDone: () => { conceptCard(c.box, '합동인 도형의 성질 이용하기', '① 구하려는 변(각)의 <b>대응변(대응각)</b>을 찾는다.<br>② 서로 합동인 두 도형은 대응변의 길이와 대응각의 크기가 각각 같다는 성질을 이용한다.'); c.done(); } });
+        numQuestion(c.box, { q: `<b>각 ${LB[1]}${LB[2]}${LB[3]}</b>의 크기는 몇 도일까요?`, answer: angA[2], unit: '°', hint: `각 ${LB[1]}${LB[2]}${LB[3]}의 대응각을 왼쪽 도형에서 찾아보세요.`, traps: { [angA[1]]: `${angA[1]}°는 각 ${LA[0]}${LA[1]}${LA[2]}의 크기예요. 각 ${LB[1]}${LB[2]}${LB[3]}의 꼭짓점 ${LB[2]}과 겹치는 점은 어느 점일까요?` }, good: `대응각인 각 ${LA[1]}${LA[2]}${LA[3]}의 크기와 같으므로 ${angA[2]}°예요.`, onDone: () => { conceptCard(c.box, '합동인 도형의 성질 이용하기', '① 구하려는 변(각)의 <b>대응변(대응각)</b>을 찾는다.<br>② 서로 합동인 두 도형은 대응변의 길이와 대응각의 크기가 각각 같다는 성질을 이용한다.'); c.done(); } });
       },
     ]);
   };
@@ -495,7 +502,8 @@
         c.box.appendChild(tbl);
         choice(c.box, {
           q: '선대칭도형을 모두 고르세요.', multi: true, grid: true,
-          options: l4Shapes.map(s => ({ t: '도형 ' + s.k, ok: Fig.axisCount(s.f) > 0 })),
+          options: l4Shapes.map(s => ({ t: '도형 ' + s.k, ok: Fig.axisCount(s.f) > 0, why: `도형 ${s.k}는 어떤 직선을 따라 접어도 완전히 겹치지 않아요. (위 표의 대칭축 수를 보세요)` })),
+          missText: (n) => `선대칭도형이 <b>${n}개</b> 더 있어요. 위 표에서 대칭축이 있는 도형을 확인해 보세요.`,
           good: '맞아요! 도형 나, 라, 마가 선대칭도형이에요. 도형 다는 가운데를 지나는 어떤 선으로 접어도 완전히 겹치지 않아요.',
           onDone: () => {
             const g = Store.get('l4a:guess', []);
@@ -558,8 +566,8 @@
         c.say('대응점끼리 이은 선분 ㄴㅂ, ㄷㅁ과 대칭축 ㅅㅇ 사이에는 어떤 관계가 있을까요? 모눈의 칸 수와 각도를 살펴보세요.', 'guide');
         SymExplore(c.area(), cfg);
         let a = false, b = false;
-        choice(c.box, { q: '선분 ㄴㅈ과 선분 ㅂㅈ의 길이를 비교하면?', options: [{ t: '길이가 같아요.', ok: true }, { t: '선분 ㄴㅈ이 더 길어요.' }, { t: '선분 ㅂㅈ이 더 길어요.' }], hint: '모눈의 칸 수를 세어 보세요.', onDone: () => { a = true; if (a && b) c.done(); } });
-        choice(c.box, { q: '대응점끼리 이은 선분 ㄴㅂ이 대칭축과 만나서 이루는 각은?', options: [{ t: '45°' }, { t: '90°', ok: true }, { t: '180°' }], hint: '직각 표시를 살펴보세요.', onDone: () => { b = true; if (a && b) c.done(); } });
+        choice(c.box, { q: '선분 ㄴㅈ과 선분 ㅂㅈ의 길이를 비교하면?', options: [{ t: '길이가 같아요.', ok: true }, { t: '선분 ㄴㅈ이 더 길어요.', why: '선분 ㄴㅈ과 선분 ㅂㅈ이 각각 모눈 몇 칸인지 세어 다시 비교해 보세요. 정말 ㄴㅈ이 더 긴가요?' }, { t: '선분 ㅂㅈ이 더 길어요.', why: '선분 ㄴㅈ과 선분 ㅂㅈ이 각각 모눈 몇 칸인지 세어 다시 비교해 보세요. 정말 ㅂㅈ이 더 긴가요?' }], onDone: () => { a = true; if (a && b) c.done(); } });
+        choice(c.box, { q: '대응점끼리 이은 선분 ㄴㅂ이 대칭축과 만나서 이루는 각은?', options: [{ t: '45°', why: '45°는 직각의 절반이에요. 선분 ㄴㅂ과 대칭축이 만나는 곳에 있는 ㄴ자 모양 표시를 살펴보세요.' }, { t: '90°', ok: true }, { t: '180°', why: '180°는 두 선이 일직선일 때예요. 선분 ㄴㅂ과 대칭축은 서로 만나서 꺾여 있어요.' }], onDone: () => { b = true; if (a && b) c.done(); } });
       },
       (c) => {
         c.say('정말 언제나 그럴까요? <b>점 ㄴ이나 점 ㄷ을 손가락으로 끌어</b> 도형을 바꾸어 보세요. 대응점도 함께 움직여요. 여러 번 바꾸어도 관계가 그대로인지 확인해요.', 'seung');
@@ -605,7 +613,7 @@
         st.dimArc([1.4, -2.2], [1.4, 0], '4 cm', [5, 0]); st.dimArc([1.4, 0], [1.4, 2.2], '? cm', [5, 0], { cls: 'ask' });
         st.text([2.2, -0.45], '?°', { class: 'measure small ask' });
         let n = 0; const fin = () => { if (++n === 2) { conceptCard(c.box, '선대칭도형의 성질', '• 대응변의 길이와 대응각의 크기가 각각 같아요.<br>• 대응점끼리 이은 선분은 대칭축과 <b>수직</b>으로 만나요.<br>• 대응점에서 대칭축까지의 <b>거리가 같아요</b>.'); c.done(); } };
-        numQuestion(c.box, { q: '<b>? cm</b>로 표시한 선분의 길이는 몇 cm일까요?', answer: 4, unit: 'cm', hint: '대응점에서 대칭축까지의 거리는 같아요.', onDone: fin });
+        numQuestion(c.box, { q: '<b>? cm</b>로 표시한 선분의 길이는 몇 cm일까요?', answer: 4, unit: 'cm', hint: '대응점에서 대칭축까지의 거리는 같아요.', traps: { 8: '8 cm는 위아래 대응점을 이은 선분 <b>전체</b>의 길이예요. ? 표시는 대칭축까지의 길이예요.', 2: '대응점에서 대칭축까지의 거리는 양쪽이 같아요. 위쪽 길이를 다시 보세요.' }, onDone: fin });
         numQuestion(c.box, { q: '<b>?°</b>로 표시한 각(대응점끼리 이은 선분과 대칭축이 만나서 이루는 각)은 몇 도일까요?', answer: 90, unit: '°', hint: '대응점끼리 이은 선분은 대칭축과 수직으로 만나요.', onDone: fin });
       },
     ]);
@@ -620,10 +628,10 @@
           options: [
             { t: '대응점끼리 이은 선분은 대칭축과 수직으로 만나요.', ok: true },
             { t: '대응점에서 대칭축까지의 거리가 같아요.', ok: true },
-            { t: '대응점은 항상 대칭축 위에 있어요.' },
-            { t: '대응점끼리 이은 선분은 대칭축과 평행해요.' },
+            { t: '대응점은 항상 대칭축 위에 있어요.', why: '‘대응점은 항상 대칭축 위에 있다’는 틀려요. 대칭축 위의 점은 자기 자신이 대응점이고, 다른 점의 대응점은 대칭축의 <b>반대쪽</b>에 있어요.' },
+            { t: '대응점끼리 이은 선분은 대칭축과 평행해요.', why: '‘평행해요’는 틀려요. 대응점끼리 이은 선분은 대칭축과 <b>만나요</b>. 만나서 이루는 각을 떠올려 보세요.' },
           ],
-          hint: '앞에서 알아본 선대칭도형의 성질을 떠올려 보세요.',
+          missText: () => '선대칭도형의 성질이 하나 더 필요해요. 대응점에서 대칭축까지의 <b>거리</b>도 생각해 보세요.',
           onDone: c.done,
         });
       },
@@ -756,7 +764,8 @@
       (c) => {
         choice(c.box, {
           q: '점대칭도형을 모두 고르세요.', multi: true, grid: true,
-          options: l7Shapes.map(s => ({ t: '도형 ' + s.k, ok: Fig.isPointSym(Fig.poly(s.P)) })),
+          options: l7Shapes.map(s => ({ t: '도형 ' + s.k, ok: Fig.isPointSym(Fig.poly(s.P)), why: `도형 ${s.k}는 180° 돌렸을 때 처음 도형과 겹치지 않았어요. 위에서 돌려 본 결과를 보세요.` })),
+          missText: (n) => `점대칭도형이 <b>${n}개</b> 더 있어요. 위에서 돌려 본 결과를 다시 보세요.`,
           good: '맞아요! 도형 가, 라, 마가 점대칭도형이에요.',
           onDone: () => {
             const g = Store.get('l7a:guess', []);
@@ -899,7 +908,7 @@
         lab(0, '14 cm'); lab(5, '8 cm');
         st.angleArc(P1, 0, 0.5, {}); st.text(V.add(P1[0], V.mul(Poly.inward(P1, 0), 1.05)), angG + '°', { class: 'measure small' });
         let n = 0; const fin = () => { if (++n === 2) c.done(); };
-        numQuestion(c.box, { q: '<b>선분 ㄹㅁ</b>의 길이는 몇 cm일까요?', answer: 14, unit: 'cm', hint: '선분 ㄹㅁ의 대응변을 찾아보세요.', onDone: fin });
+        numQuestion(c.box, { q: '<b>선분 ㄹㅁ</b>의 길이는 몇 cm일까요?', answer: 14, unit: 'cm', hint: '선분 ㄹㅁ의 대응변을 찾아보세요.', traps: { 8: '8 cm는 변 ㄱㅂ의 길이예요. 180° 돌렸을 때 변 ㄹㅁ과 겹치는 변은 어느 것일까요?' }, onDone: fin });
         numQuestion(c.box, { q: '<b>각 ㄷㄹㅁ</b>의 크기는 몇 도일까요?', answer: angG, unit: '°', hint: '각 ㄷㄹㅁ의 대응각을 찾아보세요.', onDone: fin });
       },
       (c) => {
@@ -910,8 +919,8 @@
         st.dimArc(hexP[1], hexP[4], '26 cm', [0, 3]);
         st.dimArc(hexP[5], [0, 0], '10 cm', [-3, 0]);
         let n = 0; const fin = () => { if (++n === 2) { conceptCard(c.box, '점대칭도형의 성질', '• 대응변의 길이와 대응각의 크기가 각각 같아요.<br>• 대칭의 중심은 대응점끼리 이은 선분을 <b>똑같이 둘로</b> 나눠요.<br>• 각각의 대응점에서 대칭의 중심까지의 거리는 같아요.'); c.done(); } };
-        numQuestion(c.box, { q: '선분 ㄴㅁ이 26 cm일 때, <b>선분 ㄴㅇ</b>의 길이는 몇 cm일까요?', answer: 13, unit: 'cm', hint: '대칭의 중심은 대응점끼리 이은 선분을 똑같이 둘로 나눠요.', onDone: fin });
-        numQuestion(c.box, { q: '선분 ㅂㅇ이 10 cm일 때, <b>선분 ㄷㅂ</b>의 길이는 몇 cm일까요?', answer: 20, unit: 'cm', hint: '선분 ㄷㅇ과 선분 ㅂㅇ의 길이는 같아요.', onDone: fin });
+        numQuestion(c.box, { q: '선분 ㄴㅁ이 26 cm일 때, <b>선분 ㄴㅇ</b>의 길이는 몇 cm일까요?', answer: 13, unit: 'cm', hint: '대칭의 중심은 대응점끼리 이은 선분을 똑같이 둘로 나눠요.', traps: { 26: '26 cm는 선분 ㄴㅁ <b>전체</b>의 길이예요. 선분 ㄴㅇ은 그중 대칭의 중심 ㅇ까지의 부분이에요.', 52: '선분 ㄴㅇ은 선분 ㄴㅁ보다 짧아야 해요. 대칭의 중심이 선분을 어떻게 나누는지 생각해 보세요.' }, onDone: fin });
+        numQuestion(c.box, { q: '선분 ㅂㅇ이 10 cm일 때, <b>선분 ㄷㅂ</b>의 길이는 몇 cm일까요?', answer: 20, unit: 'cm', hint: '선분 ㄷㅇ과 선분 ㅂㅇ의 길이는 같아요.', traps: { 10: '10 cm는 선분 ㅂㅇ의 길이예요. 선분 ㄷㅂ은 선분 ㄷㅇ과 선분 ㅂㅇ을 <b>합친</b> 길이예요.', 5: '선분 ㄷㅂ은 선분 ㅂㅇ보다 길어야 해요. 선분 ㄷㅇ과 선분 ㅂㅇ을 합친 길이예요.' }, onDone: fin });
       },
     ]);
   };
@@ -925,8 +934,8 @@
           options: [
             { t: '대칭의 중심은 대응점끼리 이은 선분을 똑같이 둘로 나눠요.', ok: true },
             { t: '각 점에서 대칭의 중심까지의 거리와 그 대응점에서 대칭의 중심까지의 거리는 같아요.', ok: true },
-            { t: '대응점끼리 이은 선분은 대칭의 중심을 지나지 않아요.' },
-            { t: '대응점은 대칭의 중심과 같은 쪽에 있어요.' },
+            { t: '대응점끼리 이은 선분은 대칭의 중심을 지나지 않아요.', why: '‘대칭의 중심을 지나지 않는다’는 틀려요. 앞에서 대응점끼리 이은 세 선분은 모두 대칭의 중심에서 만났어요.' },
+            { t: '대응점은 대칭의 중심과 같은 쪽에 있어요.', why: '‘같은 쪽에 있다’는 틀려요. 대응점은 대칭의 중심을 지나 <b>반대쪽</b>에 있어요.' },
           ],
           onDone: c.done,
         });
