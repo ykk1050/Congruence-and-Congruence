@@ -698,3 +698,10 @@ b { font-weight: 700; }
 .step-bar .sb { padding: 5px 10px; border-radius: 999px; background: #eef0f6; color: var(--muted); font-size: .9rem; }
 .step-bar .sb.on { background: var(--navy); color: #fff; font-weight: 700; }
 .step-bar .sb.done { background: var(--good-bg); color: var(--good); }
+
+/* 끌어 놓는 빈칸: 낱말 카드와 같은 둥근 테두리 모양 */
+.blank.drop { min-height: 46px; padding: 0 18px; margin: 2px 4px; border: 2px dashed var(--navy-2); border-radius: 999px; background: #f2f5ff; box-sizing: border-box; }
+.blank.drop.filled { border: 2px solid var(--line); background: #fff; color: var(--ink); box-shadow: 0 2px 0 rgba(0, 0, 0, .08); }
+.blank.drop.over { border-color: #e0a800; background: #fff3c4; }
+.blank.drop.right { border-color: var(--good); background: var(--good-bg); color: var(--good); }
+.blank.drop.wrong { border-color: var(--bad); background: var(--bad-bg); color: var(--bad); }
