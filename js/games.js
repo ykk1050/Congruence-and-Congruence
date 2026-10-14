@@ -611,12 +611,56 @@
   }
 
   /* =========================================================
-     선대칭도형 — 종이 오리기 체험실 (대칭축 찾기)
+     선대칭도형 — 종이 작품 봉투에 바르게 넣기 (대칭축 찾기)
      친구들이 색종이로 오린 작품을 작품 봉투에 넣으려고 반으로 접는다.
+     접는 선을 모두 찾으면 작품을 반으로 접어 봉투에 넣는 모습을 보여 준다.
      꼭 맞게 겹치도록 접을 수 있는 선(대칭축)을 모두 찾아 작품 카드에 표시한다.
      잘못 그은 선은 그 선으로 접었을 때 삐져나오는 모습을 보여 준다.
      눈으로 보아 대칭인지 애매한 도형은 넣지 않는다.
      ========================================================= */
+  /** 작품 봉투: 반으로 접은 작품(또는 접지 않은 작품)이 봉투에 들어가는 모습 */
+  function envelopeScene(box, label, paperCls) {
+    const st = new Stage(box, { x0: 0, y0: -1.6, w: 12, h: 7, cls: 'env-stage' });
+    const X0 = 2.3, X1 = 9.7, TOP = 1.7, BOT = 5.2, MID = (X0 + X1) / 2;
+    st.add(sv('rect', { x: X0, y: TOP, width: X1 - X0, height: BOT - TOP, rx: 0.12, class: 'env-back' }), 'bg');
+    const flapOpen = [[X0, TOP], [X1, TOP], [MID, TOP - 1.7]], flapShut = [[X0, TOP], [X1, TOP], [MID, TOP + 1.9]];
+    const flap = st.poly(flapOpen, { class: 'env-flap' }, 'bg');
+    // 앞면(주머니): 작품이 완전히 가려지도록 위가 곧은 모양, 봉투 접힌 선은 무늬로만 그린다
+    const front = st.add(sv('rect', { x: X0, y: TOP + 0.2, width: X1 - X0, height: BOT - TOP - 0.2, class: 'env-front' }), 'over');
+    st.polyline([[X0, BOT], [MID, TOP + 2.0], [X1, BOT]], { class: 'env-line' }, 'over');
+    const lbl = st.text([MID, BOT - 0.75], label, { class: 'cap env-lbl' }, 'over');
+    void front; void lbl;
+    return {
+      /** P: 작품 다각형, axis: [a,b] 접는 선(없으면 접지 않고 넣는다) */
+      put(P, axis, done) {
+        let Q, note;
+        if (axis) {
+          const [a, b] = axis, ang = V.angleOf(V.sub(b, a));
+          const half = UI.clipHalf(P, a, b, 1);
+          // 접는 선이 아래(가로)로 오게 돌린다: 접힌 쪽이 먼저 봉투에 들어간다
+          Q = half.map(p => V.rotVec(V.sub(p, a), -ang));
+          if (Poly.centroid(Q)[1] > 0) Q = Q.map(p => [p[0], -p[1]]);
+          note = '반으로 접어서 쏙!';
+        } else { Q = P.slice(); note = '접지 않고 그대로 넣어요'; }
+        const bb = Poly.bbox(Q), k = Math.min(5.6 / bb.w, 2.8 / bb.h);
+        const at = (bottom) => Q.map(p => [MID + (p[0] - bb.cx) * k, bottom + (p[1] - (bb.y0 + bb.h)) * k]);
+        const node = st.poly(at(TOP - 0.2), { class: 'shape paper-cut ' + paperCls }, 'main');
+        node.style.opacity = 0;
+        animate(350, t => { node.style.opacity = t; }, () => {
+          animate(800, t => st.setPoints(node, at(TOP - 0.2 + (BOT - 0.15 - TOP + 0.2) * t)), () => {
+            st.L('top').appendChild(flap);
+            animate(400, t => st.setPoints(flap, flapOpen.map((p, i) => V.lerp(p, flapShut[i], t))), () => {
+              st.add(sv('circle', { cx: MID, cy: TOP + 1.6, r: 0.42, class: 'env-seal' }), 'top');
+              st.text([MID, TOP + 1.62], '✓', { class: 'env-seal-t' }, 'top');
+              st.text([MID, -1.0], note, { class: 'cap env-note' }, 'top');
+              done && done();
+            });
+          });
+        });
+      },
+    };
+  }
+
   function gameWindow(root) {
     const SYM1 = ['정사각형', '직사각형', '이등변삼각형', '연모양', '하트', '집모양', '등변사다리꼴', '화살표', '나비', '나뭇잎', '도토리'];
     const NON1 = ['평행사변형', '직각삼각형', 'L모양'];
@@ -626,9 +670,9 @@
     const NON3 = ['Z모양', '바람개비', '번개', '부등변삼각형', 'L모양', 'Z펜토미노', 'F펜토미노', 'N펜토미노'];
     const recent = [];
     GameShell(root, {
-      id: 'g4', emoji: '✂️', title: '종이 오리기 체험실',
+      id: 'g4', emoji: '✉️', title: '종이 작품 봉투에 바르게 넣기',
       story: [
-        { who: 'dayun', text: '종이 오리기 체험실 게시판에 친구들이 색종이로 오린 작품이 가득 꽂혀 있어요. 집에 가져가려면 <b>반으로 접어</b> 작품 봉투에 넣어야 해요.' },
+        { who: 'dayun', text: '게시판에 친구들이 색종이로 오린 작품이 가득 꽂혀 있어요. 집에 가져가려면 작품을 <b>반으로 접어</b> 작품 봉투에 넣어야 해요.' },
         { who: 'guide', text: '접었을 때 양쪽이 <b>꼭 맞게 완전히 겹치는 선</b>으로 접어야 작품이 삐져나오지 않아요. 그 선이 바로 <b>대칭축</b>이에요. 작품 카드에 접을 수 있는 선을 <b>모두</b> 표시해 주세요. 어떻게 접어도 꼭 맞게 겹치지 않는 작품도 있어요.' },
       ],
       mission: '손가락으로 작품 위에 선을 그어 접어 봐요. 꼭 맞게 겹치는 선(대칭축)은 <b>여러 개</b>일 수도, <b>비스듬할</b> 수도 있어요.',
@@ -644,15 +688,25 @@
         area.appendChild(el('div', { class: 'q', html: '이 작품을 <b>꼭 맞게 겹치도록 접을 수 있는 선</b>을 모두 찾아 그어요. 다 찾으면 <b>다 그었어요</b>를 눌러요.' }));
         const box = el('div', { class: 'work cut-room' });
         area.appendChild(box);
+        const paper = R.pick(['paper-1', 'paper-2', 'paper-3', 'paper-4', 'paper-5']);
+        const envBox = el('div', { class: 'env-wrap' });
+        const env = envelopeScene(envBox, (api.index + 1) + '번 작품 봉투', paper);
+        const P0 = fig.kind === 'circle' ? Array.from({ length: 72 }, (_, i) => V.add(fig.c, V.rotVec([fig.r, 0], i * 5))) : fig.pts;
+        const axes = Fig.axes(fig);
+        const axis0 = axes === Infinity ? [V.add(fig.c, [-1, 0]), V.add(fig.c, [1, 0])] : axes.length ? [axes[0].a, axes[0].b] : null;
         const ad = UI.AxisDraw(box, {
-          fig, preview: 'fold', shapeCls: 'paper-cut ' + R.pick(['paper-1', 'paper-2', 'paper-3', 'paper-4', 'paper-5']),
+          fig, preview: 'fold', shapeCls: 'paper-cut ' + paper,
           view: { x0: -5.2, y0: -4.6, w: 10.4, h: 9.2 },
           onResult(r) {
-            if (r.ok && r.wrong === 0 && r.giveups === 0) api.correct(r.total === 0 ? '어떻게 접어도 꼭 맞게 겹치지 않는 작품을 알아봤어요!' : '접는 선을 한 번에 모두 찾았어요! 작품을 봉투에 쏙 넣었어요.');
-            else if (r.ok) api.correct('접는 선을 모두 찾았어요!', true);
-            else api.giveUp('초록 점선이 찾지 못한 접는 선(대칭축)이에요.');
+            if (!r.ok) { api.giveUp('초록 점선이 찾지 못한 접는 선(대칭축)이에요. 이 선으로 접어야 봉투에 바르게 들어가요.'); return; }
+            envBox.scrollIntoView({ behavior: 'smooth', block: 'nearest' });
+            env.put(P0, axis0, () => {
+              if (r.wrong === 0 && r.giveups === 0) api.correct(r.total === 0 ? '어떻게 접어도 꼭 맞게 겹치지 않는 작품이라 접지 않고 넣었어요!' : '접는 선을 한 번에 모두 찾았어요! 작품을 반으로 접어 봉투에 쏙 넣었어요.');
+              else api.correct('접는 선을 모두 찾았어요! 작품을 봉투에 넣었어요.', true);
+            });
           },
         });
+        area.appendChild(envBox);
         // 게시판에 꽂아 둔 압정과 작품 이름표
         const top = fig.kind === 'circle' ? V.add(fig.c, [0, -fig.r]) : fig.pts.reduce((a, b) => (b[1] < a[1] ? b : a));
         ad.stage.circle(V.lerp(top, Fig.center(fig), fig.kind === 'circle' ? 0.12 : 0.18), 0.22, { class: 'pin' }, 'top');
@@ -1392,7 +1446,7 @@
   window.Games = {
     g2: { title: '미술관 바닥 타일 수리', run: gameTiles },
     g3: { title: '스테인드글라스 창문 수리', run: gamePrint },
-    g4: { title: '종이 오리기 체험실', run: gameWindow },
+    g4: { title: '종이 작품 봉투에 바르게 넣기', run: gameWindow },
     g5: { title: '데칼코마니 작품 복원', run: gameDecal },
     g7: { title: '돌려도 같은 작품 전시실', run: gameLetters },
     g9: { title: '바람개비 공원 만들기', run: gamePinwheel },
