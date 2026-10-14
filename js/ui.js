@@ -641,7 +641,8 @@
       const d = V.rotVec([1, 0], deg);
       return stage.fullLine(c, V.add(c, d), { class: cls || ('axis found' + (mode === 'mirror' ? ' mirror' : '')) }, 'over', 0.05);
     }
-    /** 직선 a-b로 접거나 거울을 세웠을 때의 모습을 잠깐 보여 준다 */
+    let stopPreview = null;
+    /** 직선 a-b로 접거나 거울을 세웠을 때의 모습을 잠깐 보여 준다 (새 선을 그으면 바로 끝낸다) */
     function preview(a, b, good, done) {
       if (!P0) { done && done(); return; }
       const h1 = clipHalf(P0, a, b, 1), h2 = clipHalf(P0, a, b, -1);
@@ -655,7 +656,7 @@
       const flat = (p, t) => { const ft = V.foot(p, a, b); return V.add(ft, V.mul(V.sub(p, ft), 1 - 2 * t)); };
       if (mode === 'fold') {
         // 접기에서는 원래 도형을 그대로 두고, 접혀 올라가는 쪽만 흰색으로 비운 뒤 넘긴다
-        foldAnim(stage, P0, a, b, { good, hold: good ? 700 : 1900, done: end });
+        nodes.push(...foldAnim(stage, P0, a, b, { good, hold: good ? 700 : 1900, done: end }));
         stage.L('top').appendChild(nodes[0]); // 접는 선이 맨 위에 보이도록
       } else {
         nodes.push(stage.poly(P0, { class: 'outline-ref' }, 'top'));
@@ -663,15 +664,16 @@
         nodes.push(img);
         animate(700, t => stage.setPoints(img, stay.map(p => flat(p, t))), () => setTimeout(end, good ? 700 : 1900));
       }
-      function end() { nodes.forEach(n => n && n.remove()); main.style.opacity = ''; busy = false; done && done(); }
+      let ended = false;
+      function end() { if (ended) return; ended = true; stopPreview = null; nodes.forEach(n => n && n.remove()); main.style.opacity = ''; busy = false; done && done(); }
+      stopPreview = end;
     }
 
     stage.on({
       dragStart: (p) => {
-        // 도형 근처에서 시작한 선만 대칭축 긋기로 쓰고, 먼 바깥에서 밀면 페이지 스크롤
-        if (finished || busy) return false;
-        const m = size * 0.2;
-        if (p[0] < bb.x0 - m || p[0] > bb.x1 + m || p[1] < bb.y0 - m || p[1] > bb.y1 + m) return false;
+        // 그림 안 어디에서 시작해도(도형 바깥 위·아래·왼쪽·오른쪽 포함) 대칭축을 그을 수 있다
+        if (finished) return false;
+        if (stopPreview) stopPreview(); // 앞 선의 접기 모습이 아직 보이고 있어도 새 선을 그을 수 있게
         temp = stage.line(p, p, { class: 'axis temp' }, 'top');
         return true;
       },
@@ -680,7 +682,8 @@
       dragEnd: (p, s) => {
         if (!temp) return;
         temp.remove(); temp = null;
-        if (finished || busy) return;
+        if (finished) return;
+        if (stopPreview) stopPreview();
         if (V.dist(p, s) < Math.max(size * 0.12, 40 * stage.unitPerPx())) { fb.className = 'fb'; fb.textContent = '선을 조금 더 길게 그어 보세요.'; return; }
         const deg = ((V.angleOf(V.sub(p, s)) % 180) + 180) % 180;
         const dc = V.distToLine(c, s, p);
@@ -731,7 +734,7 @@
     };
     const noneLabel = mode === 'mirror' ? '🚫 거울을 세울 곳이 없어요' : '🚫 대칭축이 없어요';
     ctrl.appendChild(btn(mode === 'mirror' ? '✔ 다 세웠어요' : '✔ 다 그었어요', () => {
-      if (finished || busy) return;
+      if (finished) return; if (stopPreview) stopPreview();
       if (total === 0) { Sound.bad(); giveups++; fb.className = 'fb bad'; fb.innerHTML = `이 도형은 어떤 직선으로도 완전히 겹치게 할 수 없어요. <b>${noneLabel.slice(2)}</b>를 눌러 보세요.`; return; }
       if (found.length === 0) { fb.className = 'fb bad'; fb.textContent = '손가락으로 도형 위에 선을 그어 보세요.'; return; }
       if (total === Infinity) {
@@ -747,7 +750,7 @@
       }
     }, 'primary'));
     ctrl.appendChild(btn(noneLabel, () => {
-      if (finished || busy) return;
+      if (finished) return; if (stopPreview) stopPreview();
       if (total === 0) { Sound.good(); finish(true, '맞아요. 어떤 직선으로도 완전히 겹치게 할 수 없으니 <b>선대칭도형이 아니에요.</b>'); }
       else { giveups++; Sound.bad(); fb.className = 'fb bad'; fb.innerHTML = '이 도형은 완전히 겹치게 할 수 있는 직선이 있어요. 다시 찾아보세요.'; if (giveups >= 2) { showAll(); finish(false, `이 도형은 선대칭도형이에요. 대칭축은 <b>${total === Infinity ? '셀 수 없이 많아요' : total + '개'}</b>.`); } }
     }, 'ghost'));
