@@ -920,18 +920,29 @@
       (c) => {
         c.say('내가 세운 추측이 정말 <b>언제나</b> 맞을까요? <b>점 ㄴ이나 점 ㄷ을 손가락으로 끌어</b> 도형을 여러 번 바꾸어 보세요. 대응점도 함께 움직여요. 추측이 틀리는 도형을 찾을 수 있는지 도전해 봐요!', 'seung');
         guessCard(c.box, [1, 2]);
-        SymExplore(c.area(), Object.assign({}, l5Cfg, { onMove: (m) => { if (m === 2) { toast('도형이 바뀌어도 관계는 그대로예요!', 'good'); c.done(); } } }));
+        SymExplore(c.area(), Object.assign({}, l5Cfg, { onMove: (m) => { if (m === 2) { toast('여러 번 바꾸어 보았어요. 내 추측과 비교해 보세요.', 'good'); c.done(); } } }));
       },
       (c) => {
-        choice(c.box, {
-          q: '도형의 모양을 여러 번 바꾸어 보았어요. 추측이 틀리는 도형을 찾았나요?',
-          options: [
-            { t: '아무리 바꾸어도 찾을 수 없었어요. 추측이 언제나 맞아요.', ok: true },
-            { t: '추측이 틀리는 도형을 찾았어요.', why: '정말 그런가요? 점을 끌어 다시 바꾸어 보세요. 선분과 대칭축이 만나는 곳의 직각 표시와, 양쪽 칸 수를 함께 살펴보세요.' },
-          ],
-          good: '모양이 바뀌어도 대응점끼리 이은 선분은 대칭축과 수직으로 만나고, 대칭축까지의 거리는 양쪽이 같았어요. 다음 활동에서 성질을 정리하고 내 추측과 비교해 봐요.',
-          onDone: c.done,
+        // 학생마다 추측이 다르므로 정답·오답이 없다. 고른 답에 맞는 안내만 한다.
+        c.box.appendChild(el('div', { class: 'q', html: '도형의 모양을 여러 번 바꾸어 보았어요. <b>내 추측이 틀리는 도형</b>을 찾았나요?' }));
+        const opts = el('div', { class: 'opts' });
+        const fb = el('div', { class: 'fb' });
+        const answers = [
+          { t: '찾지 못했어요. 내 추측대로였어요.', msg: '모양을 여러 번 바꾸어도 추측대로였군요. 다음 활동에서 성질을 정리하며 내 추측과 다시 비교해 봐요.' },
+          { t: '찾았어요. 내 추측과 다른 도형이 있었어요.', msg: '추측과 다른 점을 찾았군요! 어느 부분이 달랐는지 화면의 직각 표시와 양쪽 칸 수를 다시 살펴보세요. 다음 활동에서 성질을 정리하며 내 추측을 고쳐 봐요.' },
+        ];
+        answers.forEach((o, i) => {
+          const b = el('button', { class: 'opt', type: 'button' }, o.t);
+          b.onclick = () => {
+            opts.querySelectorAll('.opt').forEach(x => x.classList.toggle('sel', x === b));
+            fb.className = 'fb'; fb.innerHTML = o.msg;
+            const st = Store.get(GUESS_KEY, null);
+            if (st) { st.verify = i === 0 ? 'held' : 'counter'; Store.set(GUESS_KEY, st); }
+            Sound.tap(); c.done();
+          };
+          opts.appendChild(b);
         });
+        c.box.append(opts, fb);
       },
     ]);
   };
