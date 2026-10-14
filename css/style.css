@@ -633,3 +633,14 @@ b { font-weight: 700; }
 .term-fig { flex: 0 1 260px; min-width: 200px; }
 .stage.term-stage { background: transparent; }
 .shape.term-tri { fill: none; stroke: #212529; }
+.term-card:not(.wide) .term-fig { order: 2; }
+.term-card.wide { flex-direction: column; align-items: stretch; }
+.term-card.wide .term-fig { flex: none; width: 100%; max-width: 620px; margin: 0 auto; }
+.term-in:disabled { opacity: 1; -webkit-text-fill-color: currentColor; }
+.term-arrow { fill: none; stroke: #e64980; stroke-width: 2px; vector-effect: non-scaling-stroke; }
+.term-arrowhead { fill: #e64980; }
+.arc.term-arc { stroke: #212529; }
+.pill-lbl rect { stroke: none; }
+.pill-lbl text { font-family: var(--font-body); font-weight: 700; fill: #212529; font-size: .9em; }
+.pill-lbl.p1 rect { fill: #ffd8e0; } .pill-lbl.p2 rect { fill: #d0ebff; } .pill-lbl.p3 rect { fill: #d3f9d8; }
+.term-card.wide .term-text { flex: none; }

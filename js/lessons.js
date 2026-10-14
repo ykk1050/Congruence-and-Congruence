@@ -50,6 +50,75 @@
     box.appendChild(wrap);
   }
 
+  /** 교과서 개념 상자의 용어를 직접 쓰기
+      parts: ['문장', {ans:'용어'}, ...] / figure(stageBox): 그림 그리기 / onReveal(정답들): 확인 후 그림에 용어 표시
+      틀리게 쓴 빈칸은 정답을 알려 주고 바르게 고쳐 써 준다. */
+  function termCard(c, cfg) {
+    const card = el('div', { class: 'concept term-card' + (cfg.wide ? ' wide' : '') });
+    const text = el('div', { class: 'term-text' });
+    const inputs = [];
+    cfg.parts.forEach(pt => {
+      if (typeof pt === 'string') { text.appendChild(el('span', { html: pt })); return; }
+      const inp = el('input', { type: 'text', class: 'term-in', maxlength: '8', autocomplete: 'off', 'aria-label': '빈칸에 들어갈 말' });
+      inp.style.width = (pt.ans.length + 1.6) + 'em';
+      inp.dataset.ans = pt.ans;
+      inputs.push(inp); text.appendChild(inp);
+    });
+    const fig = el('div', { class: 'term-fig' });
+    card.append(fig, text);
+    c.box.appendChild(card);
+    if (cfg.figure) cfg.figure(fig);
+    const fb = el('div', { class: 'fb' });
+    const ctl = c.controls();
+    let done = false;
+    const go = () => {
+      if (done) return;
+      const empty = inputs.find(x => !x.value.replace(/\s/g, ''));
+      if (empty) { fb.className = 'fb'; fb.textContent = '빈칸에 알맞은 말을 모두 써 보세요.'; empty.focus(); return; }
+      done = true; check.disabled = true;
+      const wrong = [];
+      inputs.forEach(x => {
+        const v = x.value.replace(/\s/g, ''), a = x.dataset.ans;
+        x.disabled = true;
+        if (v === a) { x.value = a; x.classList.add('right'); return; }
+        wrong.push(`‘${v}’ → <b>${a}</b>`);
+        x.value = a; x.classList.add('fixed');
+      });
+      if (!wrong.length) { Sound.good(); fb.className = 'fb good'; fb.innerHTML = cfg.good || '정답! 빈칸을 모두 바르게 썼어요.'; }
+      else {
+        Sound.bad(); shake(text);
+        fb.className = 'fb bad';
+        fb.innerHTML = `틀린 빈칸은 정답으로 고쳐 썼어요: ${wrong.join(', ')}<br>빨간 칸을 확인하고 문장을 소리 내어 읽어 보세요.`;
+      }
+      cfg.onReveal && cfg.onReveal();
+      if (cfg.after) cfg.after();
+      c.done();
+    };
+    inputs.forEach((x, i) => x.addEventListener('keydown', e => {
+      if (e.key !== 'Enter' || e.isComposing) return;
+      if (inputs[i + 1] && !inputs[i + 1].value) inputs[i + 1].focus(); else go();
+    }));
+    const check = btn('확인', go, 'primary');
+    ctl.appendChild(check);
+    c.box.appendChild(fb);
+  }
+  /** 그림 속 이름표(둥근 상자) */
+  function pill(st, p, text, cls) {
+    const g = sv('g', { class: 'pill-lbl ' + (cls || '') });
+    const w = st.fs * (0.62 * text.length * 1.6 + 0.9), h = st.fs * 1.35;
+    const r = sv('rect', { x: p[0] - w / 2, y: p[1] - h / 2, width: w, height: h, rx: h / 2 });
+    const t = sv('text', { x: p[0], y: p[1], 'text-anchor': 'middle', 'dominant-baseline': 'central' }, text);
+    g.append(r, t);
+    st.L('top').appendChild(g);
+    return { g, set(txt) { t.textContent = txt; const w2 = st.fs * (0.62 * txt.length * 1.6 + 0.9); r.setAttribute('x', p[0] - w2 / 2); r.setAttribute('width', w2); } };
+  }
+  /** 화살촉 (tip 쪽, dir 방향) */
+  function arrowHead(st, tip, dir, layer) {
+    const d = V.norm(dir), n = V.rotVec(d, 90), L = 0.38, W = 0.2;
+    const a = V.sub(tip, V.mul(d, L));
+    return st.poly([tip, V.add(a, V.mul(n, W)), V.sub(a, V.mul(n, W))], { class: 'term-arrowhead' }, layer || 'help');
+  }
+
   /** 대응점끼리 이은 선분과 대칭축/대칭의 중심 관계를 끌어 보며 탐구 */
   function SymExplore(box, cfg) {
     const line = cfg.mode === 'line';
@@ -262,42 +331,16 @@
       (c) => {
         c.say('도형 가와 도형 라처럼 포개었을 때 완전히 겹치는 두 도형을 무엇이라고 하는지 알아봐요. 빈칸에 알맞은 말을 <b>직접 써</b> 보세요.', 'guide');
         // 교과서 개념 상자: 문장 + 서로 합동인 두 삼각형
-        const card = el('div', { class: 'concept term-card' });
-        const input = el('input', { type: 'text', class: 'term-in', maxlength: '6', autocomplete: 'off', 'aria-label': '빈칸에 들어갈 말' });
-        const text = el('div', { class: 'term-text' }, '모양과 크기가 같아서 포개었을 때 완전히 겹치는 두 도형을 서로 ', input, '이라고 합니다.');
-        const fig = el('div', { class: 'term-fig' });
-        card.append(text, fig);
-        c.box.appendChild(card);
-        const st = new Stage(fig, { x0: -0.4, y0: -0.6, w: 11, h: 4.2, cls: 'term-stage' });
-        st.poly(ga, { class: 'shape term-tri' });
-        st.poly(ga.map(p => [4 - p[0] + 6, p[1]]), { class: 'shape term-tri' });
-        const fb = el('div', { class: 'fb' });
-        const ctl = c.controls();
-        let done = false;
-        const finish = () => {
-          done = true; input.disabled = true; check.disabled = true;
-          conceptCard(c.box, '합동', '모양과 크기가 같아서 포개었을 때 <b>완전히 겹치는</b> 두 도형을 서로 <b>합동</b>이라고 합니다.<br>돌리거나 <b>뒤집어서</b> 포개었을 때 완전히 겹쳐도 서로 합동이에요.');
-          c.done();
-        };
-        const go = () => {
-          if (done) return;
-          const v = input.value.replace(/\s/g, '');
-          if (!v) { fb.className = 'fb'; fb.textContent = '빈칸에 알맞은 말을 써 보세요.'; input.focus(); return; }
-          if (v === '합동') {
-            Sound.good(); input.classList.add('right');
-            fb.className = 'fb good'; fb.innerHTML = '정답! 포개었을 때 완전히 겹치는 두 도형을 서로 <b>합동</b>이라고 해요.';
-          } else {
-            // 틀리게 쓰면 정답을 알려 주고 바르게 고쳐 써 준다
-            Sound.bad(); shake(input);
-            fb.className = 'fb bad'; fb.innerHTML = `‘${v}’이(가) 아니에요. 정답은 <b>합동</b>이에요. 빈칸을 <b>합동</b>으로 고쳐 썼어요. 소리 내어 읽어 보세요.`;
-            input.value = '합동'; input.classList.add('fixed');
-          }
-          finish();
-        };
-        input.addEventListener('keydown', e => { if (e.key === 'Enter' && !e.isComposing) go(); });
-        const check = btn('확인', go, 'primary');
-        ctl.appendChild(check);
-        c.box.appendChild(fb);
+        termCard(c, {
+          parts: ['모양과 크기가 같아서 포개었을 때 완전히 겹치는 두 도형을 서로 ', { ans: '합동' }, '이라고 합니다.'],
+          figure: (box) => {
+            const st = new Stage(box, { x0: -0.4, y0: -0.6, w: 11, h: 4.2, cls: 'term-stage' });
+            st.poly(ga, { class: 'shape term-tri' });
+            st.poly(ga.map(p => [4 - p[0] + 6, p[1]]), { class: 'shape term-tri' });
+          },
+          good: '정답! 포개었을 때 완전히 겹치는 두 도형을 서로 <b>합동</b>이라고 해요.',
+          after: () => conceptCard(c.box, '합동', '모양과 크기가 같아서 포개었을 때 <b>완전히 겹치는</b> 두 도형을 서로 <b>합동</b>이라고 합니다.<br>돌리거나 <b>뒤집어서</b> 포개었을 때 완전히 겹쳐도 서로 합동이에요.'),
+        });
       },
     ]);
   };
@@ -397,10 +440,36 @@
           prompts: [[0], [1], [2]].map(g => ({ type: 'point', given: g }))
             .concat([[0, 1], [1, 2], [2, 0]].map(g => ({ type: 'side', given: g })))
             .concat([[2, 0, 1], [0, 1, 2], [1, 2, 0]].map(g => ({ type: 'angle', given: g }))),
-          onDone: () => {
-            conceptCard(c.box, '대응점, 대응변, 대응각', '서로 합동인 두 도형을 완전히 겹치도록 포개었을 때 겹치는 점을 <b>대응점</b>, 겹치는 변을 <b>대응변</b>, 겹치는 각을 <b>대응각</b>이라고 합니다.');
-            c.done();
+          onDone: () => { c.say('겹치는 점·변·각을 모두 찾았어요! 이렇게 겹치는 점·변·각을 무엇이라고 부르는지 다음 단계에서 알아봐요.', 'guide'); c.done(); },
+        });
+      },
+      (c) => {
+        c.say('서로 합동인 두 삼각형을 포개었을 때 겹치는 점, 변, 각을 부르는 이름이 있어요. 그림의 화살표를 보고 빈칸에 알맞은 말을 <b>직접 써</b> 보세요.', 'guide');
+        let tags = [];
+        termCard(c, {
+          wide: true,
+          parts: ['서로 합동인 두 도형을 완전히 겹치도록 포개었을 때 겹치는 점을 ', { ans: '대응점' }, ', 겹치는 변을 ', { ans: '대응변' }, ', 겹치는 각을 ', { ans: '대응각' }, '이라고 합니다.'],
+          figure: (box) => {
+            // 교과서 그림: 합동인 두 삼각형과 겹치는 점·변·각을 잇는 화살표
+            const T = [[3, 1.4], [0.6, 6], [6.4, 6]], U = shift(T, 9, 0);
+            const st = new Stage(box, { x0: -0.4, y0: -0.2, w: 16.2, h: 6.7, cls: 'term-stage' });
+            st.poly(T, { class: 'shape term-tri' }); st.poly(U, { class: 'shape term-tri' });
+            st.angleArc(T, 2, 0.75, { class: 'arc term-arc' }); st.angleArc(U, 2, 0.75, { class: 'arc term-arc' });
+            const link = (a, b, curve) => {
+              const pts = curve ? [a, curve, b] : [a, b];
+              st.path(curve ? `M${a[0]},${a[1]} Q${curve[0]},${curve[1]} ${b[0]},${b[1]}` : `M${a[0]},${a[1]} L${b[0]},${b[1]}`, { class: 'term-arrow' }, 'help');
+              arrowHead(st, a, V.sub(a, pts[1])); arrowHead(st, b, V.sub(b, pts[pts.length - 2]));
+            };
+            link(V.add(T[0], [0.15, 0]), V.sub(U[0], [0.15, 0]));
+            const m1 = V.mid(T[0], T[2]), m2 = V.mid(U[0], U[2]);
+            link(V.add(m1, [0.25, 0]), V.sub(m2, [0.25, 0]));
+            const a1 = V.add(T[2], [-0.75, -0.42]), a2 = V.add(U[2], [-0.7, -0.38]);
+            link(a1, a2, [9.5, 2.9]);
+            tags = [pill(st, [7.5, 1.4], '?', 'p1'), pill(st, [7.9, 3.7], '?', 'p2'), pill(st, [8.4, 4.9], '?', 'p3')];
           },
+          onReveal: () => ['대응점', '대응변', '대응각'].forEach((t, i) => tags[i].set(t)),
+          good: '정답! 겹치는 점은 <b>대응점</b>, 겹치는 변은 <b>대응변</b>, 겹치는 각은 <b>대응각</b>이에요.',
+          after: () => conceptCard(c.box, '대응점, 대응변, 대응각', '서로 합동인 두 도형을 완전히 겹치도록 포개었을 때 겹치는 점을 <b>대응점</b>, 겹치는 변을 <b>대응변</b>, 겹치는 각을 <b>대응각</b>이라고 합니다.'),
         });
       },
     ]);
