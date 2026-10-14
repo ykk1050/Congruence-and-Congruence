@@ -849,16 +849,12 @@
           }),
         });
       },
-      (c) => {
-        c.say('접어 보며 알게 된 것을 정리해 봐요. 대칭축을 따라 접으면 완전히 겹치니까…', 'guide');
-        fillBlank(c.box, { parts: ['선대칭도형은 ', { ans: '대응변' }, '의 길이와 ', { ans: '대응각' }, '의 크기가 각각 같습니다.'], chips: ['대응변', '대응각', '대칭축', '대응점'], onDone: c.done });
-      },
     ]);
   };
 
+  const l5Cfg = { mode: 'line', w: 12, h: 8, axis: [[6, 0], [6, 8]], axisLabels: ['ㅅ', 'ㅇ'], pts: [[6, 2], [2, 1], [3, 7], [6, 6], [9, 7], [10, 1]], labels: ['ㄱ', 'ㄴ', 'ㄷ', 'ㄹ', 'ㅁ', 'ㅂ'], pairs: [[1, 5], [2, 4]], drag: [1, 2], footLabels: ['ㅈ', 'ㅊ'] };
   ACT.l5b = function (root) {
-    const pts = [[6, 2], [2, 1], [3, 7], [6, 6], [9, 7], [10, 1]];
-    const cfg = { mode: 'line', w: 12, h: 8, axis: [[6, 0], [6, 8]], axisLabels: ['ㅅ', 'ㅇ'], pts, labels: ['ㄱ', 'ㄴ', 'ㄷ', 'ㄹ', 'ㅁ', 'ㅂ'], pairs: [[1, 5], [2, 4]], drag: [1, 2], footLabels: ['ㅈ', 'ㅊ'] };
+    const cfg = l5Cfg;
     UI.runSteps(root, [
       (c) => {
         c.say('대응점끼리 이은 선분 ㄴㅂ, ㄷㅁ과 대칭축 ㅅㅇ 사이에는 어떤 관계가 있을까요? 모눈의 칸 수와 각도를 살펴보세요.', 'guide');
@@ -867,16 +863,125 @@
         choice(c.box, { q: '선분 ㄴㅈ과 선분 ㅂㅈ의 길이를 비교하면?', options: [{ t: '길이가 같아요.', ok: true }, { t: '선분 ㄴㅈ이 더 길어요.', why: '선분 ㄴㅈ과 선분 ㅂㅈ이 각각 모눈 몇 칸인지 세어 다시 비교해 보세요. 정말 ㄴㅈ이 더 긴가요?' }, { t: '선분 ㅂㅈ이 더 길어요.', why: '선분 ㄴㅈ과 선분 ㅂㅈ이 각각 모눈 몇 칸인지 세어 다시 비교해 보세요. 정말 ㅂㅈ이 더 긴가요?' }], onDone: () => { a = true; if (a && b) c.done(); } });
         choice(c.box, { q: '대응점끼리 이은 선분 ㄴㅂ이 대칭축과 만나서 이루는 각은?', options: [{ t: '45°', why: '45°는 직각의 절반이에요. 선분 ㄴㅂ과 대칭축이 만나는 곳에 있는 ㄴ자 모양 표시를 살펴보세요.' }, { t: '90°', ok: true }, { t: '180°', why: '180°는 두 선이 일직선일 때예요. 선분 ㄴㅂ과 대칭축은 서로 만나서 꺾여 있어요.' }], onDone: () => { b = true; if (a && b) c.done(); } });
       },
+    ]);
+  };
+
+  /* ---------- 추측 → 검증 → 정리 (귀납 추론) ----------
+     학생이 쓴 추측은 이 기기에 저장해 두었다가, ‘성질 정리하기’에서 낱말 카드로 문장을 완성하며 비교한다. */
+  const GUESS_KEY = 'guess:l5';
+  const GUESS_Q = [
+    { q: '대응변의 길이와 대응각의 크기는 어떨 것 같나요?', ph: '예) 대응변의 길이는 ~일 것이다.' },
+    { q: '대응점끼리 이은 선분과 대칭축 사이에는 어떤 관계가 있을 것 같나요?', ph: '예) 대응점끼리 이은 선분은 대칭축과 ~일 것이다.' },
+    { q: '대응점에서 대칭축까지의 거리는 어떨 것 같나요?', ph: '예) 대응점에서 대칭축까지의 거리는 ~일 것이다.' },
+  ];
+  const loadGuess = () => Store.get(GUESS_KEY, null);
+  function guessCard(box, idx, title) {
+    const g = loadGuess();
+    const card = el('div', { class: 'guess-card' }, el('div', { class: 'guess-title' }, title || '📝 내가 세운 추측'));
+    const list = idx || [0, 1, 2];
+    if (!g) card.appendChild(el('div', { class: 'muted' }, '아직 저장한 추측이 없어요. ‘공통된 규칙 추측하기’ 활동에서 먼저 추측을 써 보세요.'));
+    else list.forEach(i => card.appendChild(el('div', { class: 'guess-line' }, el('span', { class: 'guess-no' }, '추측 ' + '①②③'[i]), ' ' + (g.text[i] || '(쓰지 않음)'))));
+    box.appendChild(card);
+    return card;
+  }
+
+  ACT.l5p = function (root) {
+    UI.runSteps(root, [
       (c) => {
-        c.say('정말 언제나 그럴까요? <b>점 ㄴ이나 점 ㄷ을 손가락으로 끌어</b> 도형을 바꾸어 보세요. 대응점도 함께 움직여요. 여러 번 바꾸어도 관계가 그대로인지 확인해요.', 'seung');
-        SymExplore(c.area(), Object.assign({}, cfg, { onMove: (m) => { if (m === 2) { toast('도형이 바뀌어도 관계는 그대로예요!', 'good'); c.done(); } } }));
+        c.say('접어 보고, 모눈에서 살펴본 결과를 떠올려 보세요. 선대칭도형에는 어떤 <b>공통된 규칙</b>이 있을 것 같나요? 아직 확인하지 않았으니 <b>‘~일 것이다.’</b>로 추측해서 써 봐요.', 'guide');
+        const prev = loadGuess();
+        const wrap = el('div', { class: 'guess-form' });
+        const inputs = GUESS_Q.map((g, i) => {
+          const ta = el('textarea', { class: 'guess-in', rows: 2, placeholder: g.ph, 'aria-label': g.q });
+          if (prev && prev.text[i]) ta.value = prev.text[i];
+          wrap.append(el('div', { class: 'guess-q' }, el('b', {}, '추측 ' + '①②③'[i]), ' ' + g.q), ta);
+          return ta;
+        });
+        c.box.appendChild(wrap);
+        const fb = el('div', { class: 'fb' });
+        const save = btn('💾 추측 저장하기', () => {
+          const text = inputs.map(t => t.value.trim());
+          const empty = text.findIndex(t => t.length < 4);
+          if (empty >= 0) { fb.className = 'fb bad'; fb.textContent = `추측 ${'①②③'[empty]}을 문장으로 써 보세요.`; inputs[empty].focus(); return; }
+          Store.set(GUESS_KEY, { text, at: Date.now() });
+          Sound.good();
+          fb.className = 'fb good';
+          fb.innerHTML = '추측을 저장했어요! 다음 활동에서 이 추측이 <b>언제나</b> 맞는지 확인해 봐요.';
+          c.done();
+        }, 'primary');
+        c.controls().appendChild(save);
+        c.box.appendChild(fb);
+      },
+    ]);
+  };
+
+  ACT.l5v = function (root) {
+    UI.runSteps(root, [
+      (c) => {
+        c.say('내가 세운 추측이 정말 <b>언제나</b> 맞을까요? <b>점 ㄴ이나 점 ㄷ을 손가락으로 끌어</b> 도형을 여러 번 바꾸어 보세요. 대응점도 함께 움직여요. 추측이 틀리는 도형을 찾을 수 있는지 도전해 봐요!', 'seung');
+        guessCard(c.box, [1, 2]);
+        SymExplore(c.area(), Object.assign({}, l5Cfg, { onMove: (m) => { if (m === 2) { toast('도형이 바뀌어도 관계는 그대로예요!', 'good'); c.done(); } } }));
       },
       (c) => {
-        fillBlank(c.box, {
-          parts: ['선대칭도형에서 대응점끼리 이은 선분은 대칭축과 ', { ans: '수직' }, '으로 만나고, 대응점에서 대칭축까지의 거리는 ', { ans: '같습니다' }, '.'],
-          chips: ['수직', '평행', '같습니다', '다릅니다'],
+        choice(c.box, {
+          q: '도형의 모양을 여러 번 바꾸어 보았어요. 추측이 틀리는 도형을 찾았나요?',
+          options: [
+            { t: '아무리 바꾸어도 찾을 수 없었어요. 추측이 언제나 맞아요.', ok: true },
+            { t: '추측이 틀리는 도형을 찾았어요.', why: '정말 그런가요? 점을 끌어 다시 바꾸어 보세요. 선분과 대칭축이 만나는 곳의 직각 표시와, 양쪽 칸 수를 함께 살펴보세요.' },
+          ],
+          good: '모양이 바뀌어도 대응점끼리 이은 선분은 대칭축과 수직으로 만나고, 대칭축까지의 거리는 양쪽이 같았어요. 다음 활동에서 성질을 정리하고 내 추측과 비교해 봐요.',
           onDone: c.done,
         });
+      },
+    ]);
+  };
+
+  ACT.l5s = function (root) {
+    const g0 = loadGuess();
+    /** 확인한 성질 문장을 낱말 카드로 완성하고, 바로 위의 내 추측과 비교한다 */
+    function compare(c, idx, sentence, chips, title) {
+      guessCard(c.box, idx, '📝 내 추측');
+      c.box.appendChild(el('div', { class: 'guess-title confirmed' }, '✅ ' + title));
+      fillBlank(c.box, {
+        parts: sentence, chips,
+        onDone: () => {
+          if (!g0) { c.done(); return; }
+          const box = el('div', { class: 'self-check' });
+          c.box.appendChild(box);
+          const results = {};
+          idx.forEach(i => {
+            const row = el('div', { class: 'sc-row' }, el('span', {}, `추측 ${'①②③'[i]}은 확인한 성질과`));
+            const set = (v, b) => {
+              results[i] = v;
+              row.querySelectorAll('button').forEach(x => x.classList.toggle('sel', x === b));
+              const st = Store.get(GUESS_KEY, g0); st.check = Object.assign({}, st.check, { [i]: v }); Store.set(GUESS_KEY, st);
+              if (idx.every(k => results[k])) {
+                c.say(Object.values(results).every(v => v === 'same')
+                  ? '내 추측이 확인한 성질과 같았어요! 추측하고 확인하는 과정을 잘 해냈어요.'
+                  : '다른 부분이 있었어요. 내 추측의 어느 낱말이 달랐는지 확인한 성질과 비교해 보세요. 추측은 확인하면서 고쳐 나가는 거예요.', 'guide');
+                c.done();
+              }
+            };
+            const b1 = btn('같아요', () => set('same', b1), 'chip');
+            const b2 = btn('달라요(고쳐야 해요)', () => set('diff', b2), 'chip');
+            row.append(b1, b2);
+            box.appendChild(row);
+          });
+        },
+      });
+    }
+    UI.runSteps(root, [
+      (c) => {
+        c.say('확인한 내용을 낱말 카드로 정리하고, 처음에 세운 <b>내 추측</b>과 비교해 봐요.', 'guide');
+        compare(c, [0], ['선대칭도형은 ', { ans: '대응변' }, '의 길이와 ', { ans: '대응각' }, '의 크기가 각각 같습니다.'], ['대응변', '대응각', '대칭축', '대응점'], '확인한 성질 ①');
+      },
+      (c) => {
+        compare(c, [1, 2], ['선대칭도형에서 대응점끼리 이은 선분은 대칭축과 ', { ans: '수직' }, '으로 만나고, 대응점에서 대칭축까지의 거리는 ', { ans: '같습니다' }, '.'], ['수직', '평행', '같습니다', '다릅니다'], '확인한 성질 ②');
+      },
+      (c) => {
+        conceptCard(c.box, '선대칭도형의 성질', '• 대응변의 길이와 대응각의 크기가 각각 같아요.<br>• 대응점끼리 이은 선분은 대칭축과 <b>수직</b>으로 만나고, 대칭축은 그 선분을 <b>똑같이 둘로</b> 나눠요.<br>&nbsp;&nbsp;→ 대응점끼리 이은 선분은 대칭축에 의하여 <b>수직이등분</b>돼요.');
+        c.say('왜 언제나 그럴까요? 대칭축을 따라 접으면 대응점끼리 완전히 겹치니까 대칭축까지의 거리가 같고, 선분이 반으로 접혀 겹치니까 양쪽 각이 같아서 90°예요.', 'seung');
+        c.done();
       },
     ]);
   };
@@ -1410,7 +1515,10 @@
       story: '다윤이와 승현이가 색종이를 반으로 접어 오려서 선대칭도형 작품을 만들었어요. 대응변과 대응각에는 어떤 성질이 있을까요?',
       acts: [
         { id: 'l5a', title: '접어 보며 대응변과 대응각 비교하기', type: 'app' },
-        { id: 'l5b', title: '대응점끼리 이은 선분과 대칭축의 관계', type: 'app' },
+        { id: 'l5b', title: '대응점끼리 이은 선분과 대칭축의 관계 살펴보기', type: 'app' },
+        { id: 'l5p', title: '공통된 규칙 추측하기', type: 'app' },
+        { id: 'l5v', title: '추측이 언제나 맞는지 확인하기', type: 'app' },
+        { id: 'l5s', title: '선대칭도형의 성질 정리하기', type: 'app' },
         { id: 'l5c', title: '선대칭도형의 성질로 길이와 각 구하기', type: 'app' },
         { id: 'l5d', title: '선대칭도형을 완성하는 방법 알아보기', type: 'app' },
         { id: 'l5e', title: '선대칭도형 완성하기', type: 'app' },

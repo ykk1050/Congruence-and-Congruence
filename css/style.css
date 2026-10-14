@@ -728,3 +728,17 @@ b { font-weight: 700; }
 .cmp-wedge { opacity: .6; stroke: none; }
 .cmp-wedge.cmp-left { fill: #f08c00; }
 .cmp-wedge.cmp-right { fill: #1c7ed6; }
+
+/* 추측 쓰기와 비교 */
+.guess-form { display: grid; gap: 8px; }
+.guess-q { font-size: 1.02rem; margin-top: 6px; }
+.guess-in { width: 100%; box-sizing: border-box; font: inherit; font-size: 1.05rem; padding: 10px 12px; border: 2px solid var(--line); border-radius: 12px; background: #fffef8; resize: vertical; }
+.guess-in:focus { outline: none; border-color: #e0a800; background: #fff8e1; }
+.guess-card { margin: 10px 0 6px; padding: 10px 14px; border-radius: 14px; background: #fff8e1; border: 2px dashed #f0b429; }
+.guess-title { font-weight: 700; color: #8a5a00; margin-bottom: 4px; }
+.guess-title.confirmed { color: var(--good); margin: 10px 0 2px; }
+.guess-line { line-height: 1.6; }
+.guess-no { display: inline-block; font-weight: 700; color: #8a5a00; }
+.self-check { margin-top: 10px; display: grid; gap: 8px; }
+.sc-row { display: flex; flex-wrap: wrap; align-items: center; gap: 8px; }
+.sc-row .btn.sel { background: var(--navy); color: #fff; border-color: var(--navy); }
