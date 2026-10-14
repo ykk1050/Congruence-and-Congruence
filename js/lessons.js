@@ -1517,7 +1517,7 @@
         { id: 'l5a', title: '접어 보며 대응변과 대응각 비교하기', type: 'app' },
         { id: 'l5b', title: '대응점끼리 이은 선분과 대칭축의 관계 살펴보기', type: 'app' },
         { id: 'l5p', title: '공통된 규칙 추측하기', type: 'app' },
-        { id: 'l5v', title: '추측이 언제나 맞는지 확인하기', type: 'app' },
+        { id: 'l5v', title: '추측이 맞는지 확인하기', type: 'app' },
         { id: 'l5s', title: '선대칭도형의 성질 정리하기', type: 'app' },
         { id: 'l5c', title: '선대칭도형의 성질로 길이와 각 구하기', type: 'app' },
         { id: 'l5d', title: '선대칭도형을 완성하는 방법 알아보기', type: 'app' },
