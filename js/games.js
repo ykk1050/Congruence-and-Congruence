@@ -64,7 +64,7 @@
             if (settled) return;
             tries++; streak = 0; Sound.bad(); drawHud();
             if (msg) toast(msg, 'bad', 2600);
-            if (tries >= 2 && revealFn && !bar.querySelector('.reveal')) bar.appendChild(btn('정답 보기', () => { revealFn(); }, 'ghost reveal'));
+            if (tries >= 2 && revealFn && !bar.querySelector('.reveal')) { const rb = btn('정답 보기', () => { rb.remove(); revealFn(); }, 'ghost reveal'); bar.appendChild(rb); }
           },
           giveUp(msg) {
             if (settled) return; settled = true; streak = 0; drawHud();
@@ -395,18 +395,52 @@
   }
 
   /* =========================================================
-     3차시 — 판화 공방 (합동인 도형의 성질)
+     3차시 — 스테인드글라스 창문 수리 (합동인 도형의 성질)
+     양쪽 창문에 서로 합동인 유리 조각이 짝을 이루고 있다. 한 조각에 금이 가서
+     짝 조각의 대응변·대응각을 재어 새 유리를 똑같이 잘라 끼운다.
      ========================================================= */
+  const GLASS = ['#4dabf7', '#ff6b6b', '#fcc419', '#51cf66', '#9775fa', '#ff922b', '#22b8cf', '#f06595'];
+  const PALE = ['#e7f5ff', '#fff4e6', '#f3f0ff', '#ebfbee', '#fff9db', '#ffe3e3'];
+  /** 아치형 창문 하나: 돌 벽 속 창틀 + 마름모 무늬의 옅은 유리 */
+  function glassWindow(st, cx, top, bottom, w) {
+    const bg = st.L('bg'), r = w / 2, l = cx - r, rt = cx + r, id = 'gw' + (++uid);
+    const d = `M${l},${bottom} L${l},${top + r} A${r},${r} 0 0 1 ${rt},${top + r} L${rt},${bottom} Z`;
+    bg.appendChild(sv('path', { d, class: 'sg-frame' }));
+    bg.appendChild(sv('clipPath', { id }, sv('path', { d })));
+    const g = sv('g', { 'clip-path': `url(#${id})` });
+    g.appendChild(sv('path', { d, class: 'sg-sky' }));
+    const k = 1.7;
+    for (let row = 0, y = top - k; y < bottom + k; y += k / 2, row++) {
+      for (let x = l - k + (row % 2 ? k / 2 : 0); x < rt + k; x += k) {
+        g.appendChild(sv('polygon', { points: `${x},${y - k / 2} ${x + k / 2},${y} ${x},${y + k / 2} ${x - k / 2},${y}`, class: 'sg-cell', style: `fill:${R.pick(PALE)}` }));
+      }
+    }
+    bg.appendChild(g);
+    bg.appendChild(sv('path', { d, class: 'sg-frame-in' }));
+  }
+  /** 깨진 유리의 금 */
+  function crackLines(st, P) {
+    const c = V.add(Poly.centroid(P), [R.int(-3, 3) * 0.08, R.int(-3, 3) * 0.08]);
+    const g = sv('g', { class: 'sg-crack' });
+    const ends = P.map((p, i) => V.lerp(p, P[(i + 1) % P.length], R.pick([0.35, 0.5, 0.65]))).concat(P.filter((_, i) => i % 2 === 0));
+    ends.forEach(e => {
+      const m = V.add(V.lerp(c, e, 0.5), V.mul(V.rotVec(V.norm(V.sub(e, c)), 90), R.pick([-0.25, 0.25])));
+      g.appendChild(sv('polyline', { points: [c, m, V.lerp(c, e, 0.9)].map(p => p.join(',')).join(' '), fill: 'none' }));
+    });
+    st.L('main').appendChild(g);
+    return g;
+  }
+
   function gamePrint(root) {
     const bag = TypeBag();
     GameShell(root, {
-      id: 'g3', emoji: '🖨️', title: '승현이의 판화 공방',
+      id: 'g3', emoji: '🪟', title: '스테인드글라스 창문 수리',
       story: [
-        { who: 'seung', text: '판에 도형을 새겨서 종이에 찍었어요. 그런데 찍어 낸 판화는 <b>뒤집히고 돌아가</b> 있네요!' },
-        { who: 'guide', text: '판에 새긴 도형과 찍어 낸 도형은 <b>서로 합동</b>이에요. 대응점, 대응변, 대응각을 찾고, 합동인 도형의 성질로 길이와 각도를 알아내 판화 작품을 완성해 주세요.' },
+        { who: 'seung', text: '앗! 미술관 창문의 스테인드글라스 유리 조각 하나에 <b>금이 갔어요</b>. 새 유리로 바꿔 끼워야 해요.' },
+        { who: 'guide', text: '이 창문은 양쪽에 <b>서로 합동인 유리 조각</b>이 짝을 이루고 있어요. 금 간 조각은 잴 수 없으니, 온전한 짝 조각에서 <b>대응점·대응변·대응각</b>을 찾아 길이와 각도를 알아내면 새 유리를 똑같이 자를 수 있어요. 짝 조각은 돌아가거나 뒤집혀 끼워져 있으니 조심하세요!' },
       ],
-      mission: '대응점·대응변·대응각을 찾고, <b>대응변의 길이와 대응각의 크기가 같다</b>는 성질로 문제를 해결해요.',
-      rounds: 10, roundName: '작품',
+      mission: '금 간 조각과 짝 조각에서 대응점·대응변·대응각을 찾고, <b>대응변의 길이와 대응각의 크기가 같다</b>는 성질로 새 유리의 길이와 각도를 구해요.',
+      rounds: 10, roundName: '유리 조각',
       makeRound(area, api) {
         const tri = api.level === 3 ? true : R.chance(0.55);
         const base = tri ? Shapes.niceTriangle() : Shapes.niceQuad();
@@ -418,13 +452,29 @@
         const shift = R.int(0, n - 1), dir = R.pick([1, -1]);
         const LB = new Array(n);
         for (let m = 0; m < n; m++) LB[((shift + dir * m) % n + n) % n] = LBletters[m];
-        const st = new Stage(area, { x0: 0, y0: 0, w: 23, h: 10.6, cls: 'print-stage' });
-        st.add(sv('rect', { x: 0.4, y: 0.4, width: 10.6, height: 9.8, rx: 0.4, class: 'plate' }), 'bg');
-        st.add(sv('rect', { x: 12, y: 0.4, width: 10.6, height: 9.8, rx: 0.2, class: 'paper' }), 'bg');
-        st.text([5.7, 0.95], '판에 새긴 도형', { class: 'cap light' });
-        st.text([17.3, 0.95], '찍어 낸 도형', { class: 'cap' });
-        st.poly(A, { class: 'shape print-a' }); st.poly(B, { class: 'shape print-b' });
-        st.vertexLabels(A, LA, { off: 0.5, cls: 'light' }); st.vertexLabels(B, LB, { off: 0.5 });
+        const st = new Stage(area, { x0: 0, y0: 0, w: 23, h: 11.8, cls: 'print-stage glass-stage' });
+        st.add(sv('rect', { x: 0, y: 0, width: 23, height: 11.8, class: 'sg-wall' }), 'bg');
+        glassWindow(st, 5.7, 0.35, 10.6, 10.4); glassWindow(st, 17.3, 0.35, 10.6, 10.4);
+        // 질문 대상(금 간 조각): A 또는 B
+        const askOnB = R.chance(0.5);
+        const color = R.pick(GLASS);
+        const nodeA = st.poly(A, { class: 'shape sg-piece', style: `fill:${color}` }), nodeB = st.poly(B, { class: 'shape sg-piece', style: `fill:${color}` });
+        const broken = askOnB ? nodeB : nodeA;
+        broken.classList.add('cracked');
+        const crack = crackLines(st, askOnB ? B : A);
+        [[5.7, askOnB ? '온전한 짝 조각' : '⚠️ 금 간 조각'], [17.3, askOnB ? '⚠️ 금 간 조각' : '온전한 짝 조각']].forEach(([x, t]) => {
+          st.add(sv('rect', { x: x - 2.7, y: 10.75, width: 5.4, height: 0.9, rx: 0.15, class: 'sg-plate' }), 'bg');
+          st.text([x, 11.2], t, { class: 'cap sg-plate-lbl' });
+        });
+        st.vertexLabels(A, LA, { off: 0.5 }); st.vertexLabels(B, LB, { off: 0.5 });
+        let repaired = false;
+        /** 새 유리로 갈아 끼우기 */
+        const repair = () => {
+          if (repaired) return; repaired = true;
+          crack.remove(); broken.classList.remove('cracked'); broken.classList.add('fixed');
+          const sp = st.circle(Poly.centroid(askOnB ? B : A), 0.2, { class: 'mu-spark' }, 'top');
+          animate(600, k => { sp.setAttribute('r', 0.2 + k * 3); sp.style.opacity = 1 - k; }, () => sp.remove());
+        };
         const sideName = (L, i) => L[i] + L[(i + 1) % n];
         const angName = (L, i) => L[(i - 1 + n) % n] + L[i] + L[(i + 1) % n];
         const angA = Poly.angles(A).map(x => Math.round(x));
@@ -443,8 +493,6 @@
         const type = api.level === 1 ? bag.draw(['point', 'side', 'angle', 'point', 'side', 'angle', 'count'])
           : api.level === 2 ? bag.draw(['len', 'ang'])
           : (tri ? bag.draw(['perim', 'sum', 'len', 'ang']) : R.pick(['len', 'ang']));
-        // 질문 대상: A 또는 B
-        const askOnB = R.chance(0.5);
         const i = R.int(0, n - 1);
         const L1 = askOnB ? LB : LA, L2 = askOnB ? LA : LB;
         const P1 = askOnB ? B : A, P2 = askOnB ? A : B;
@@ -452,7 +500,7 @@
           // 합동인 두 도형에서 대응점·대응변·대응각은 각각 몇 쌍? (지도서: 꼭짓점·변·각의 수와 같다)
           const what = R.pick(['점', '변', '각']);
           const shape = n === 3 ? '삼각형' : '사각형';
-          q.innerHTML = `두 ${shape}은 서로 합동이에요. <b>대응${what}</b>은 모두 몇 쌍일까요?`;
+          q.innerHTML = `금 간 조각과 짝 조각은 서로 합동인 ${shape}이에요. <b>대응${what}</b>은 모두 몇 쌍일까요?`;
           const traps = {
             [2 * n]: `${2 * n}은 두 도형의 ${what === '점' ? '꼭짓점' : what}을 모두 센 수예요. 대응${what}은 두 도형에서 하나씩 짝을 지은 <b>쌍</b>의 수예요.`,
             1: `포개었을 때 겹치는 ${what === '점' ? '꼭짓점' : what}은 하나만이 아니에요. 모두 짝을 지어 보세요.`,
@@ -470,16 +518,17 @@
                 else if (what === '변') { st.line(A[k], A[(k + 1) % n], { class: 'pair-side', style: `stroke:${c}` }, 'top'); st.line(B[k], B[(k + 1) % n], { class: 'pair-side', style: `stroke:${c}` }, 'top'); }
                 else { st.angleWedge(A, k, 0.6, { class: 'pair-wedge', style: `fill:${c}` }, 'top'); st.angleWedge(B, k, 0.6, { class: 'pair-wedge', style: `fill:${c}` }, 'top'); }
               }
-              api.correct(`${shape}의 ${what === '점' ? '꼭짓점' : what}이 ${n}개라서 대응${what}도 ${n}쌍이에요!`);
+              repair(); api.correct(`${shape}의 ${what === '점' ? '꼭짓점' : what}이 ${n}개라서 대응${what}도 ${n}쌍이에요!`);
             } else { reset(); api.wrong(traps[v] || `${v}쌍이 아니에요. 같은 색끼리 짝을 짓듯 겹치는 ${what === '점' ? '꼭짓점' : what}을 하나씩 짝지어 세어 보세요.`); }
           }, '쌍');
-          api.onReveal(() => { done = true; api.giveUp(`정답: <b>${n}쌍</b> — ${shape}의 ${what === '점' ? '꼭짓점' : what}의 수와 같아요.`); });
+          api.onReveal(() => { done = true; repair(); api.giveUp(`정답: <b>${n}쌍</b> — ${shape}의 ${what === '점' ? '꼭짓점' : what}의 수와 같아요.`); });
           return;
         }
         if (type === 'point' || type === 'side' || type === 'angle') {
           const name = type === 'point' ? '점 ' + L1[i] : type === 'side' ? '변 ' + sideName(L1, i) : '각 ' + angName(L1, i);
           const correct = type === 'point' ? '점 ' + L2[i] : type === 'side' ? sideName(L2, i) : angName(L2, i);
-          q.innerHTML = `<b>${name}</b>의 대응${type === 'point' ? '점' : type === 'side' ? '변' : '각'}은 무엇일까요?`;
+          const kind = type === 'point' ? '점' : type === 'side' ? '변' : '각';
+          q.innerHTML = `새 유리를 자르려면 짝 조각에서 재어야 해요. 금 간 조각의 <b>${name}</b>의 대응${kind}은 짝 조각의 어느 ${kind}일까요?`;
           if (type === 'side') st.line(P1[i], P1[(i + 1) % n], { class: 'given-side' }, 'top');
           if (type === 'angle') st.angleWedge(P1, i, 0.7, { class: 'given-wedge' }, 'top');
           if (type === 'point') st.circle(P1[i], 0.3, { class: 'given-ring' }, 'top');
@@ -497,8 +546,8 @@
             const b = el('button', { class: 'opt', type: 'button' }, o.t);
             b.onclick = () => {
               if (done) return;
-              if (o.ok) { done = true; b.classList.add('right'); markPair(); api.correct(); }
-              else { b.classList.add('wrong'); shake(b); api.wrong('판화는 뒤집혀 찍혀요. 포개었을 때 겹치는 곳을 생각해 보세요.'); }
+              if (o.ok) { done = true; b.classList.add('right'); markPair(); repair(); api.correct(); }
+              else { b.classList.add('wrong'); shake(b); api.wrong('짝 조각은 돌아가거나 뒤집혀 끼워져 있어요. 두 조각을 포개었을 때 겹치는 곳을 생각해 보세요.'); }
             };
             wrapO.appendChild(b);
           });
@@ -508,7 +557,7 @@
             if (type === 'side') st.line(P2[i], P2[(i + 1) % n], { class: 'given-side' }, 'top');
             if (type === 'angle') st.angleWedge(P2, i, 0.7, { class: 'given-wedge' }, 'top');
           }
-          api.onReveal(() => { done = true; markPair(); api.giveUp(`정답: ${correct.startsWith('점') ? correct : (type === 'side' ? '변 ' : '각 ') + correct}`); });
+          api.onReveal(() => { done = true; markPair(); repair(); api.giveUp(`정답: ${correct.startsWith('점') ? correct : (type === 'side' ? '변 ' : '각 ') + correct}`); });
           return;
         }
         let answer, unit;
@@ -519,14 +568,14 @@
           sideLabel(P2, i, lenA[i] + ' cm'); sideLabel(P1, j, lenA[j] + ' cm');
           sideLabel(P1, i, '? cm', 'ask');
           st.line(P1[i], P1[(i + 1) % n], { class: 'given-side' }, 'top');
-          q.innerHTML = `<b>변 ${sideName(L1, i)}</b>의 길이는 몇 cm일까요?`;
+          q.innerHTML = `새 유리의 <b>변 ${sideName(L1, i)}</b>은 몇 cm로 잘라야 할까요?`;
           answer = lenA[i]; unit = 'cm';
           if (lenA[j] !== answer) traps[lenA[j]] = `${lenA[j]} cm는 변 ${sideName(L1, j)}의 길이예요. 변 ${sideName(L1, i)}과 겹치는 변은 다른 도형의 어느 변일까요?`;
         } else if (type === 'ang') {
           const j = (i + R.int(1, n - 1)) % n;
           angLabel(P2, i, angA[i] + '°'); angLabel(P1, j, angA[j] + '°', 'muted');
           angLabel(P1, i, '?°', 'ask');
-          q.innerHTML = `<b>각 ${angName(L1, i)}</b>의 크기는 몇 도일까요?`;
+          q.innerHTML = `새 유리의 <b>각 ${angName(L1, i)}</b>은 몇 도로 잘라야 할까요?`;
           answer = angA[i]; unit = '°';
           if (angA[j] !== answer) traps[angA[j]] = `${angA[j]}°는 각 ${angName(L1, j)}의 크기예요. 각 ${angName(L1, i)}과 겹치는 각은 다른 도형의 어느 각일까요?`;
         } else if (type === 'sum') {
@@ -534,7 +583,7 @@
           const j = (i + 1) % 3, k2 = (i + 2) % 3;
           angLabel(P2, j, angA[j] + '°'); angLabel(P1, k2, angA[k2] + '°');
           angLabel(P1, i, '?°', 'ask');
-          q.innerHTML = `<b>각 ${angName(L1, i)}</b>의 크기는 몇 도일까요? <span class="muted">(삼각형의 세 각의 크기의 합은 180°)</span>`;
+          q.innerHTML = `새 유리의 <b>각 ${angName(L1, i)}</b>은 몇 도로 잘라야 할까요? <span class="muted">(삼각형의 세 각의 크기의 합은 180°)</span>`;
           answer = angA[i]; unit = '°';
           [j, k2].forEach(x => { if (angA[x] !== answer) traps[angA[x]] = `${angA[x]}°는 이미 알고 있는 각의 크기예요. 두 각을 삼각형 ${L1.join('')}에 모아 놓고, 세 각의 합이 180°임을 이용해 보세요.`; });
           traps[180 - angA[i]] = '180°에서 한 각만 뺐어요. 알고 있는 두 각을 모두 빼야 해요.';
@@ -544,7 +593,7 @@
           sideLabel(P2, j, lenA[j] + ' cm'); sideLabel(P1, k2, lenA[k2] + ' cm');
           sideLabel(P1, i, '? cm', 'ask');
           const per = lenA[0] + lenA[1] + lenA[2];
-          q.innerHTML = `삼각형 ${L1.join('')}의 둘레는 <b>${per} cm</b>예요. <b>변 ${sideName(L1, i)}</b>의 길이는 몇 cm일까요?`;
+          q.innerHTML = `금 간 조각 ${L1.join('')}의 둘레는 <b>${per} cm</b>예요. 새 유리의 <b>변 ${sideName(L1, i)}</b>은 몇 cm로 잘라야 할까요?`;
           answer = lenA[i]; unit = 'cm';
           [j, k2].forEach(x => { if (lenA[x] !== answer) traps[lenA[x]] = `${lenA[x]} cm는 이미 알고 있는 변의 길이예요. 둘레에서 다른 두 변의 길이를 빼 보세요.`; });
           traps[per] = '둘레 전체를 썼어요. 둘레에서 다른 두 변의 길이를 빼야 해요.';
@@ -553,18 +602,19 @@
         let done = false;
         keypad(ansBox, (v, reset) => {
           if (done) return;
-          if (v === answer) { done = true; api.correct(`대응${unit === 'cm' ? '변의 길이' : '각의 크기'}가 같아요!`); }
+          if (v === answer) { done = true; repair(); api.correct(`대응${unit === 'cm' ? '변의 길이' : '각의 크기'}가 같아요! 새 유리를 딱 맞게 잘라 끼웠어요.`); }
           else { reset(); api.wrong(traps[v] || (unit === 'cm' ? `${v} cm는 아니에요. 구하려는 변의 대응변을 먼저 찾아보세요.` : `${v}°는 아니에요. 구하려는 각의 대응각을 먼저 찾아보세요.`)); }
         }, unit);
-        api.onReveal(() => { done = true; api.giveUp(`정답: <b>${answer}${unit === 'cm' ? ' cm' : '°'}</b>`); });
+        api.onReveal(() => { done = true; repair(); api.giveUp(`정답: <b>${answer}${unit === 'cm' ? ' cm' : '°'}</b>`); });
       },
     });
   }
 
   /* =========================================================
-     선대칭도형 — 거울 마술 전시실 (대칭축 찾기)
-     거울을 대칭축에 세우면 거울에 비친 반쪽과 남은 반쪽이 원래 작품과 똑같이 보인다.
-     (지도서 참고 자료: 거울을 이용하여 선대칭도형 만들기)
+     선대칭도형 — 종이 오리기 체험실 (대칭축 찾기)
+     친구들이 색종이로 오린 작품을 작품 봉투에 넣으려고 반으로 접는다.
+     꼭 맞게 겹치도록 접을 수 있는 선(대칭축)을 모두 찾아 작품 카드에 표시한다.
+     잘못 그은 선은 그 선으로 접었을 때 삐져나오는 모습을 보여 준다.
      눈으로 보아 대칭인지 애매한 도형은 넣지 않는다.
      ========================================================= */
   function gameWindow(root) {
@@ -576,12 +626,12 @@
     const NON3 = ['Z모양', '바람개비', '번개', '부등변삼각형', 'L모양', 'Z펜토미노', 'F펜토미노', 'N펜토미노'];
     const recent = [];
     GameShell(root, {
-      id: 'g4', emoji: '✨', title: '거울 마술 전시실',
+      id: 'g4', emoji: '✂️', title: '종이 오리기 체험실',
       story: [
-        { who: 'dayun', text: '이 전시실에서는 작품 위에 <b>거울</b>을 세워 놓았어요. 거울에 비친 반쪽과 남은 반쪽이 합쳐져서 원래 작품과 똑같이 보여요!' },
-        { who: 'guide', text: '새 작품이 들어왔어요. 큐레이터를 도와 작품마다 <b>거울을 세울 수 있는 자리</b>를 모두 찾아 주세요. 거울은 작품의 <b>대칭축</b>에 세워야 원래 모양이 그대로 보여요. 거울을 세울 자리가 없는 작품도 있어요.' },
+        { who: 'dayun', text: '종이 오리기 체험실 게시판에 친구들이 색종이로 오린 작품이 가득 꽂혀 있어요. 집에 가져가려면 <b>반으로 접어</b> 작품 봉투에 넣어야 해요.' },
+        { who: 'guide', text: '접었을 때 양쪽이 <b>꼭 맞게 완전히 겹치는 선</b>으로 접어야 작품이 삐져나오지 않아요. 그 선이 바로 <b>대칭축</b>이에요. 작품 카드에 접을 수 있는 선을 <b>모두</b> 표시해 주세요. 어떻게 접어도 꼭 맞게 겹치지 않는 작품도 있어요.' },
       ],
-      mission: '손가락으로 선을 그어 거울(대칭축)을 세워요. 거울을 세울 자리는 <b>여러 개</b>일 수도, <b>비스듬할</b> 수도 있어요.',
+      mission: '손가락으로 작품 위에 선을 그어 접어 봐요. 꼭 맞게 겹치는 선(대칭축)은 <b>여러 개</b>일 수도, <b>비스듬할</b> 수도 있어요.',
       rounds: 10, roundName: '작품',
       makeRound(area, api) {
         const sym = api.level === 1 ? SYM1 : api.level === 2 ? SYM2 : SYM3;
@@ -591,18 +641,23 @@
         recent.push(name); if (recent.length > 3) recent.shift();
         const rot = api.level === 1 ? 0 : R.int(0, 11) * 15;
         const fig = name === '원' ? Fig.circle([0, 0], 3.2) : Shapes.polyShape(name, rot).fig;
-        area.appendChild(el('div', { class: 'q', html: '작품에 <b>거울을 세울 수 있는 자리</b>를 모두 찾아 선을 그어요. 다 찾으면 <b>다 세웠어요</b>를 눌러요.' }));
-        const box = el('div', { class: 'work mirror-room' });
+        area.appendChild(el('div', { class: 'q', html: '이 작품을 <b>꼭 맞게 겹치도록 접을 수 있는 선</b>을 모두 찾아 그어요. 다 찾으면 <b>다 그었어요</b>를 눌러요.' }));
+        const box = el('div', { class: 'work cut-room' });
         area.appendChild(box);
-        UI.AxisDraw(box, {
-          fig, preview: 'mirror', shapeCls: R.pick(['glass-1', 'glass-2', 'glass-3', 'glass-4', 'glass-5']),
+        const ad = UI.AxisDraw(box, {
+          fig, preview: 'fold', shapeCls: 'paper-cut ' + R.pick(['paper-1', 'paper-2', 'paper-3', 'paper-4', 'paper-5']),
           view: { x0: -5.2, y0: -4.6, w: 10.4, h: 9.2 },
           onResult(r) {
-            if (r.ok && r.wrong === 0 && r.giveups === 0) api.correct(r.total === 0 ? '거울을 세울 수 없는 작품을 알아봤어요!' : '거울 자리를 한 번에 모두 찾았어요!');
-            else if (r.ok) api.correct('거울 자리를 모두 찾았어요!', true);
-            else api.giveUp('초록 점선이 찾지 못한 거울 자리(대칭축)예요.');
+            if (r.ok && r.wrong === 0 && r.giveups === 0) api.correct(r.total === 0 ? '어떻게 접어도 꼭 맞게 겹치지 않는 작품을 알아봤어요!' : '접는 선을 한 번에 모두 찾았어요! 작품을 봉투에 쏙 넣었어요.');
+            else if (r.ok) api.correct('접는 선을 모두 찾았어요!', true);
+            else api.giveUp('초록 점선이 찾지 못한 접는 선(대칭축)이에요.');
           },
         });
+        // 게시판에 꽂아 둔 압정과 작품 이름표
+        const top = fig.kind === 'circle' ? V.add(fig.c, [0, -fig.r]) : fig.pts.reduce((a, b) => (b[1] < a[1] ? b : a));
+        ad.stage.circle(V.lerp(top, Fig.center(fig), fig.kind === 'circle' ? 0.12 : 0.18), 0.22, { class: 'pin' }, 'top');
+        ad.stage.add(sv('rect', { x: 2.4, y: 3.55, width: 2.6, height: 0.85, rx: 0.12, class: 'cut-tag' }), 'bg');
+        ad.stage.text([3.7, 3.98], api.index + 1 + '번 작품', { class: 'cap cut-tag-lbl' }, 'bg');
       },
     });
   }
@@ -803,26 +858,74 @@
     }
   }
 
+  /* ---------- 데칼코마니: 종이 한쪽에 칠한 물감 ---------- */
+  const PAINT = ['#ff6b6b', '#fcc419', '#4dabf7', '#51cf66', '#cc5de8', '#ff922b', '#20c997', '#f06595'];
+  /** 다각형 G 안쪽에 물감 얼룩을 무작위로 만든다 (모눈 좌표) */
+  function paintBlobs(G) {
+    const b = Poly.bbox(G), blobs = [], cols = R.shuffle(PAINT).slice(0, 3);
+    const inside = (p, r) => Poly.pointIn(G, p) && G.every((q, i) => V.distToSeg(p, q, G[(i + 1) % G.length]) > r * 0.35);
+    for (let t = 0; t < 400 && blobs.length < 9; t++) {
+      const r = blobs.length < 4 ? 0.7 + Math.random() * 0.7 : 0.25 + Math.random() * 0.4;
+      const p = [b.x0 + Math.random() * b.w, b.y0 + Math.random() * b.h];
+      if (!inside(p, r) || blobs.some(o => V.dist(o.p, p) < (o.r + r) * 0.55)) continue;
+      blobs.push({ p, r, rx: r * (0.8 + Math.random() * 0.5), rot: R.int(0, 179), col: cols[blobs.length % cols.length] });
+    }
+    return blobs;
+  }
+  /** 물감 얼룩을 다각형 안으로 잘라서 그린다 (reflect: 대칭축으로 뒤집은 자리) */
+  function drawPaint(st, G, blobs, map) {
+    const id = 'pc' + (++uid);
+    const fid = st.svg.querySelector('filter.paint-fx') ? st.svg.querySelector('filter.paint-fx').id : 'pf' + (++uid);
+    if (!st.svg.querySelector('filter.paint-fx')) {
+      st.L('bg').appendChild(sv('filter', { id: fid, class: 'paint-fx', x: '-20%', y: '-20%', width: '140%', height: '140%' },
+        sv('feTurbulence', { type: 'fractalNoise', baseFrequency: '0.9', numOctaves: '2', seed: String(R.int(1, 99)) }),
+        sv('feDisplacementMap', { in: 'SourceGraphic', scale: '0.5' })));
+    }
+    const g = sv('g', { class: 'paint' });
+    g.appendChild(sv('clipPath', { id }, sv('polygon', { points: G.map(p => p.join(',')).join(' ') })));
+    const inner = sv('g', { 'clip-path': `url(#${id})` });
+    inner.appendChild(sv('polygon', { points: G.map(p => p.join(',')).join(' '), class: 'paint-paper' }));
+    const blobsG = sv('g', { filter: `url(#${fid})` });
+    blobs.forEach(o => {
+      const c = map(o.p), d = map(V.add(o.p, V.rotVec([1, 0], o.rot)));
+      const rot = V.angleOf(V.sub(d, c));
+      blobsG.appendChild(sv('ellipse', { cx: c[0], cy: c[1], rx: o.rx, ry: o.r, transform: `rotate(${rot} ${c[0]} ${c[1]})`, class: 'paint-blob', style: `fill:${o.col}` }));
+    });
+    inner.appendChild(blobsG);
+    g.appendChild(inner);
+    st.L('grid').appendChild(g);
+    return g;
+  }
+
   function completeRound(area, api, mode, sceneAdd) {
     const isLine = mode === 'line';
     let gen;
     if (isLine) gen = Shapes.lineHalf(api.level === 1 ? 'v' : api.level === 2 ? R.pick(['v', 'h']) : R.pick(['d', 'd', 'v', 'h']));
     else gen = Shapes.pointHalf();
-    area.appendChild(el('div', { class: 'q', html: isLine ? '대칭축의 반대쪽에 <b>대응점</b>을 찍어 선대칭도형을 완성해요.' : '점 ㅇ을 대칭의 중심으로 하는 <b>점대칭도형</b>을 완성해요.' }));
-    const box = el('div', { class: 'work' });
+    area.appendChild(el('div', { class: 'q', html: isLine ? '물감이 칠해진 반쪽만 남았어요. 대칭축(접는 선)의 반대쪽에 <b>대응점</b>을 찍어 작품을 복원해요.' : '점 ㅇ을 대칭의 중심으로 하는 <b>점대칭도형</b>을 완성해요.' }));
+    const box = el('div', { class: 'work' + (isLine ? ' decal' : '') });
     area.appendChild(box);
-    let revealed = false;
+    let revealed = false, blobs = null;
     const gc = UI.GridComplete(box, {
       mode, w: 10, h: 10, axis: gen.axis, center: gen.center, given: gen.given,
       connect: 'auto', verify: false,
       onMistake(m) { if (m === 1 || m === 3) api.wrong(); },
       onDone(r) {
-        if (revealed) api.giveUp('파란 점이 대응점이에요. 대응점을 찾는 방법을 다시 떠올려 보세요.');
-        else if (r.mistakes === 0) api.correct(isLine ? '데칼코마니 작품이 완성됐어요!' : '바람개비가 완성됐어요!');
-        else api.correct('완성했어요!', true);
+        const report = () => {
+          if (revealed) api.giveUp('파란 점이 대응점이에요. 대응점을 찾는 방법을 다시 떠올려 보세요.');
+          else if (r.mistakes === 0) api.correct(isLine ? '종이를 접었다 펴니 물감이 반대쪽에 똑같이 찍혔어요. 데칼코마니 작품 복원 완성!' : '바람개비가 완성됐어요!');
+          else api.correct(isLine ? '데칼코마니 작품을 복원했어요!' : '완성했어요!', true);
+        };
         sceneAdd && sceneAdd(r.poly);
+        if (!blobs) { report(); return; }
+        // 대칭축으로 접었다 편 것처럼, 물감이 반대쪽에 거울처럼 찍혀 나온다
+        const [A, B] = gen.axis, half = gen.given.map(p => V.reflect(p, A, B));
+        const pg = drawPaint(gc.stage, half, blobs, p => V.reflect(p, A, B));
+        pg.style.opacity = 0;
+        animate(900, t => { pg.style.opacity = t; }, report);
       },
     });
+    if (isLine) { blobs = paintBlobs(gen.given); drawPaint(gc.stage, gen.given, blobs, p => p); }
     api.onReveal(() => { revealed = true; gc.revealAll(); });
   }
 
@@ -831,8 +934,8 @@
     GameShell(root, {
       id: 'g5', emoji: '🎨', title: '데칼코마니 작품 복원',
       story: [
-        { who: 'seung', text: '작품 만들기 체험장에 걸린 데칼코마니 작품이 반쯤 지워졌어요!' },
-        { who: 'guide', text: '데칼코마니 작품은 <b>선대칭도형</b>이에요. 대칭축과 남은 절반을 보고 작품을 복원해 주세요. 가끔은 큐레이터의 <b>성질 퀴즈</b>도 나와요.' },
+        { who: 'seung', text: '데칼코마니는 종이 한쪽에 물감을 칠하고 <b>반으로 접었다 펴서</b> 만드는 작품이에요. 그런데 작품 몇 점이 물에 젖어 반쪽이 지워졌어요!' },
+        { who: 'guide', text: '접는 선을 따라 물감이 그대로 찍히니까 데칼코마니 작품은 <b>선대칭도형</b>이에요. 접는 선(대칭축)과 남은 반쪽을 보고 작품의 테두리를 복원하면, 물감이 반대쪽에 다시 찍혀요. 가끔은 큐레이터의 <b>성질 퀴즈</b>도 나와요.' },
       ],
       mission: '대응점끼리 이은 선분은 대칭축과 <b>수직</b>이고, 대응점에서 대칭축까지의 <b>거리가 같다</b>는 성질을 이용해요. 주어진 꼭짓점을 누르면 수선이 그어져요.',
       rounds: 10, roundName: '작품',
@@ -845,8 +948,77 @@
   }
 
   /* =========================================================
-     7차시 — 천장 글자 작품 감별 (점대칭도형 찾기)
+     7차시 — 돌려도 같은 작품 전시실 (점대칭도형 찾기)
+     새로 들어온 글자·도형 작품을 살펴보고, 점대칭도형이면 ‘돌려도 같은 작품 전시실’로,
+     아니면 ‘다른 작품 전시실’로 옮긴다. 옮기는 모습과 전시실 벽에 걸린 작품이 보인다.
      ========================================================= */
+  /** 작품 액자 (큰 무대 뒤) */
+  function artFrame(st) {
+    st.add(sv('rect', { x: -4.85, y: -4.3, width: 9.7, height: 8.6, rx: 0.12, class: 'art-frame' }), 'bg');
+    st.add(sv('rect', { x: -4.5, y: -3.95, width: 9, height: 7.9, class: 'art-canvas' }), 'bg');
+  }
+  /** 작은 액자에 담긴 작품 (전시실 복도 그림용) */
+  function miniWork(st, f, layer) {
+    const b = Fig.bbox(f), F = Math.max(b.w, b.h, 2) * 1.3;
+    const g = sv('g', { class: 'hl-work' });
+    g.appendChild(sv('rect', { x: -F / 2 - F * 0.08, y: -F / 2 - F * 0.08, width: F * 1.16, height: F * 1.16, class: 'hl-work-frame' }));
+    g.appendChild(sv('rect', { x: -F / 2, y: -F / 2, width: F, height: F, class: 'hl-work-canvas' }));
+    const inner = sv('g', { transform: `translate(${-b.cx} ${-b.cy})` });
+    inner.appendChild(st.fig(f, { class: 'shape ' + (f.kind === 'strokes' ? 'letter' : 'fill-a') }, layer));
+    g.appendChild(inner);
+    st.L(layer).appendChild(g);
+    return { g, F };
+  }
+  /** 복도: 왼쪽 ‘돌려도 같은 작품 전시실’, 가운데 새 작품 받침대, 오른쪽 ‘다른 작품 전시실’ */
+  function galleryHall(area, moved, f) {
+    const W = 28, H = 9;
+    const st = new Stage(area, { x0: 0, y0: 0, w: W, h: H, cls: 'hall-stage' });
+    const bg = st.L('bg'), r = (x, y, w, h, cls, rx) => bg.appendChild(sv('rect', { x, y, width: w, height: h, rx: rx || 0, class: cls }));
+    r(0, 0, W, H, 'hl-wall');
+    r(0, 7.4, W, 1.6, 'hl-floor');
+    const rooms = [
+      { key: 'same', x: 0.4, label: '🔄 돌려도 같은 작품 전시실' },
+      { key: 'other', x: 17.6, label: '🖼️ 다른 작품 전시실' },
+    ];
+    rooms.forEach(rm => {
+      r(rm.x, 1.3, 10, 6.1, 'hl-room');
+      r(rm.x, 6.3, 10, 1.1, 'hl-room-floor');
+      r(rm.x - 0.2, 1.1, 0.35, 6.3, 'hl-post'); r(rm.x + 9.85, 1.1, 0.35, 6.3, 'hl-post'); r(rm.x - 0.2, 1.05, 10.4, 0.35, 'hl-post');
+      rm.sign = sv('rect', { x: rm.x + 0.6, y: 0.08, width: 8.8, height: 0.9, rx: 0.2, class: 'hl-sign ' + rm.key });
+      bg.appendChild(rm.sign);
+      bg.appendChild(sv('text', { x: rm.x + 5, y: 0.55, 'text-anchor': 'middle', 'dominant-baseline': 'central', class: 'hl-sign-lbl' }, rm.label));
+    });
+    // 가운데: 새 작품을 올려 둔 이젤
+    st.line([13.1, 5.6], [12.2, 8.2], { class: 'hl-easel' }, 'bg'); st.line([14.9, 5.6], [15.8, 8.2], { class: 'hl-easel' }, 'bg'); st.line([14, 5.4], [14, 8.4], { class: 'hl-easel' }, 'bg');
+    bg.appendChild(sv('text', { x: 14, y: 1.2, 'text-anchor': 'middle', 'dominant-baseline': 'central', class: 'hl-new-lbl' }, '새로 온 작품'));
+    const SLOT = 1.45;
+    const slot = (rm, k) => [rm.x + 1.15 + (k % 5) * 1.92, 2.45 + Math.floor((k % 10) / 5) * 2.0];
+    const put = (w, at, size) => w.g.setAttribute('transform', `translate(${at[0]} ${at[1]}) scale(${size / (w.F * 1.16)})`);
+    rooms.forEach(rm => moved[rm.key].forEach((mf, k) => put(miniWork(st, mf, 'main'), slot(rm, k), SLOT)));
+    const cur = miniWork(st, f, 'over'), HOME = [14, 3.75], BIG = 3.4;
+    put(cur, HOME, BIG);
+    let sent = false;
+    return {
+      /** 작품을 알맞은 전시실로 옮겨 건다 (한 번만) */
+      send(same, cb) {
+        if (sent) return; sent = true;
+        const rm = rooms[same ? 0 : 1], to = slot(rm, moved[rm.key].length);
+        rm.sign.classList.add('lit');
+        const lift = [HOME[0], HOME[1] - 0.6];
+        animate(300, t => put(cur, V.lerp(HOME, lift, t), BIG), () => {
+          animate(900, t => {
+            const e = t < 0.5 ? 2 * t * t : 1 - Math.pow(-2 * t + 2, 2) / 2;
+            put(cur, V.add(V.lerp(lift, to, e), [0, -Math.sin(Math.PI * e) * 0.8]), BIG + (SLOT - BIG) * e);
+          }, () => {
+            moved[rm.key].push(f); Sound.tap();
+            setTimeout(() => rm.sign.classList.remove('lit'), 700);
+            cb && cb();
+          });
+        });
+      },
+    };
+  }
+
   function gameLetters(root) {
     const pool = () => {
       const letters = Object.keys(Shapes.letterLib).concat(['ㅇ']).map(ch => ({ ...Shapes.letter(ch), kind: '글자' }));
@@ -855,17 +1027,20 @@
     };
     let items = pool();
     const bag = TypeBag(), seen = Seen();
+    let moved = { same: [], other: [] }, hall = null;
+    const toRoom = (f, cb) => hall.send(Fig.isPointSym(f), cb);
     const itemKey = (it) => it.kind + it.name;
     GameShell(root, {
-      id: 'g7', emoji: '🔤', title: '천장 글자 작품 감별사',
+      id: 'g7', emoji: '🔄', title: '돌려도 같은 작품 전시실',
       story: [
-        { who: 'dayun', text: '미술관 천장의 글자 작품 중에는 <b>거꾸로 돌려도 똑같아 보이는</b> 작품이 있어요!' },
-        { who: 'guide', text: '어떤 점을 중심으로 <b>180°</b> 돌렸을 때 처음과 완전히 겹치는 작품만 “돌려도 같은 작품” 전시실로 옮길 수 있어요. 가운데에 점이 찍혀 있다고 모두 점대칭도형은 아니니 조심하세요!' },
+        { who: 'dayun', text: '미술관에 새 글자 작품과 도형 작품이 도착했어요. 그중 <b>거꾸로 돌려도 똑같아 보이는</b> 작품만 모아 두는 ‘돌려도 같은 작품 전시실’이 있대요!' },
+        { who: 'guide', text: '어떤 점을 중심으로 <b>180°</b> 돌렸을 때 처음과 완전히 겹치는 작품(점대칭도형)은 <b>‘돌려도 같은 작품 전시실’</b>로, 나머지는 <b>‘다른 작품 전시실’</b>로 옮겨 주세요. 가운데에 점이 찍혀 있다고 모두 점대칭도형은 아니니 조심하세요!' },
       ],
-      mission: '점대칭도형인지 판단하고, <b>대칭의 중심</b>과 <b>대응점</b>을 찾아요.',
+      mission: '작품이 점대칭도형인지 판단하고, <b>대칭의 중심</b>과 <b>대응점</b>을 찾아 알맞은 전시실로 옮겨요.',
       rounds: 12, roundName: '작품',
+      endNote: '‘돌려도 같은 작품 전시실’에 걸린 작품은 모두 <b>점대칭도형</b>이에요.',
       makeRound(area, api) {
-        if (api.index === 0) { bag.reset(); seen.clear(); }
+        if (api.index === 0) { bag.reset(); seen.clear(); moved = { same: [], other: [] }; }
         const mode = bag.draw(api.level === 1 ? ['ox', 'ox', 'predict'] : api.level === 2 ? ['ox', 'center', 'predict', 'why'] : ['center', 'corr', 'corr', 'why', 'predict']);
         if (mode === 'corr') return corrRound(area, api);
         if (mode === 'predict') return predictRound(area, api);
@@ -879,7 +1054,9 @@
         const bb = Fig.bbox(f);
         const isCircle = f.kind === 'circle';
         const center = isCircle ? f.c : [bb.cx, bb.cy];
+        hall = galleryHall(area, moved, f);
         const st = new Stage(area, { x0: -5, y0: -4.4, w: 10, h: 8.8, cls: 'letter-stage' });
+        artFrame(st);
         st.fig(f, { class: 'shape ' + (f.kind === 'strokes' ? 'letter' : 'fill-a') + (isCircle ? ' ring' : '') });
         const ctrl = el('div', { class: 'controls center' });
         const q = el('div', { class: 'q' });
@@ -891,27 +1068,27 @@
           UI.spin180(st, g, center, { same90: f.kind === 'circle' || same90, same180: ps, done: () => { cb && cb(); setTimeout(() => g.remove(), 1500); } });
         };
         if (mode === 'ox') {
-          q.innerHTML = `이 ${it.kind}${it.kind === '도형' ? '은' : '는'} <b>점대칭도형</b>일까요? <span class="muted">(빨간 점을 중심으로 돌려 생각해요)</span>`;
+          q.innerHTML = `이 ${it.kind} 작품은 <b>점대칭도형</b>일까요? <span class="muted">(빨간 점을 중심으로 돌려 생각해요. 점대칭도형이면 ‘돌려도 같은 작품 전시실’로 옮겨요)</span>`;
           st.circle(center, 0.14, { class: 'center-dot' }, 'ui');
           const answer = (yes) => {
             if (done) return;
             const ok = yes === ps;
-            if (ok) { done = true; spin(() => api.correct(ps ? '180° 돌리니 완전히 겹쳐요!' : '180° 돌리면 겹치지 않아요. 점대칭도형이 아니에요.')); }
-            else { api.wrong(); done = true; spin(() => api.giveUp(ps ? '180° 돌렸더니 처음 모양과 완전히 겹쳐요. <b>점대칭도형</b>이에요.' : '180° 돌렸더니 겹치지 않아요. 점이 있다고 점대칭도형은 아니에요.')); }
+            if (ok) { done = true; spin(() => toRoom(f, () => api.correct(ps ? '180° 돌리니 완전히 겹쳐요! ‘돌려도 같은 작품 전시실’로 옮겼어요.' : '180° 돌리면 겹치지 않아요. 점대칭도형이 아니라서 ‘다른 작품 전시실’로 옮겼어요.'))); }
+            else { api.wrong(); done = true; spin(() => toRoom(f, () => api.giveUp(ps ? '180° 돌렸더니 처음 모양과 완전히 겹쳐요. <b>점대칭도형</b>이라서 ‘돌려도 같은 작품 전시실’로 가요.' : '180° 돌렸더니 겹치지 않아요. 점이 있다고 점대칭도형은 아니에요. ‘다른 작품 전시실’로 가요.'))); }
           };
           ctrl.append(btn('⭕ 점대칭도형이에요', () => answer(true), 'primary'), btn('❌ 아니에요', () => answer(false), 'secondary'));
         } else {
-          q.innerHTML = `이 ${it.kind}${it.kind === '도형' ? '은' : '는'} 점대칭도형이에요. <b>대칭의 중심</b>을 눌러 표시해요.`;
+          q.innerHTML = `이 ${it.kind} 작품은 점대칭도형이에요. 전시실로 옮기기 전에 작품 카드에 적을 <b>대칭의 중심</b>을 눌러 표시해요.`;
           st.svg.classList.add('tappable');
           st.on({
             tap: (p) => {
               if (done) return;
               const mk = st.circle(p, 0.15, { class: 'center-dot' }, 'top');
-              if (V.dist(p, center) < 0.55) { done = true; mk.remove(); st.circle(center, 0.16, { class: 'center-dot' }, 'top'); spin(() => api.correct('대칭의 중심을 정확히 찾았어요!')); }
+              if (V.dist(p, center) < 0.55) { done = true; mk.remove(); st.circle(center, 0.16, { class: 'center-dot' }, 'top'); spin(() => toRoom(f, () => api.correct('대칭의 중심을 정확히 찾았어요! ‘돌려도 같은 작품 전시실’로 옮겼어요.'))); }
               else { setTimeout(() => mk.remove(), 700); api.wrong('그 점을 중심으로 180° 돌리면 겹치지 않아요. 도형의 한가운데를 다시 찾아보세요.'); }
             },
           });
-          api.onReveal(() => { done = true; st.circle(center, 0.16, { class: 'center-dot' }, 'top'); spin(() => api.giveUp('빨간 점이 대칭의 중심이에요.')); });
+          api.onReveal(() => { done = true; st.circle(center, 0.16, { class: 'center-dot' }, 'top'); spin(() => toRoom(f, () => api.giveUp('빨간 점이 대칭의 중심이에요.'))); });
         }
         void c;
       },
@@ -926,6 +1103,7 @@
     const figCenter = (f) => { const bb = Fig.bbox(f); return [bb.cx, bb.cy]; };
     function mainStage(area, f) {
       const st = new Stage(area, { x0: -5, y0: -4.4, w: 10, h: 8.8, cls: 'letter-stage' });
+      artFrame(st);
       st.fig(f, { class: figCls(f) });
       return st;
     }
@@ -951,7 +1129,8 @@
       ];
       const opts = [right];
       R.shuffle(cands).forEach(o => { if (opts.length < 4 && !opts.some(x => Fig.equal(x.f, o.f, 1e-3))) opts.push(o); });
-      const q = el('div', { class: 'q', html: `빨간 점을 중심으로 이 ${it.kind}${it.kind === '도형' ? '을' : '를'} <b>180°</b> 돌리면 어떤 모양이 될까요? 머릿속으로 돌려 보고 골라요.` });
+      hall = galleryHall(area, moved, f);
+      const q = el('div', { class: 'q', html: `빨간 점을 중심으로 이 ${it.kind} 작품을 <b>180°</b> 돌리면 어떤 모양이 될까요? 머릿속으로 돌려 보고 골라요.` });
       area.appendChild(q);
       const st = mainStage(area, f);
       st.circle(c, 0.14, { class: 'center-dot' }, 'ui');
@@ -964,18 +1143,19 @@
         ts.fig(o.f, { class: figCls(o.f) });
         b.onclick = () => {
           if (done) return;
-          if (o.ok) { done = true; b.classList.add('right'); spinShow(st, f, false, () => api.correct('예상한 모양과 똑같이 돌아갔어요!')); }
+          if (o.ok) { done = true; b.classList.add('right'); spinShow(st, f, false, () => toRoom(f, () => api.correct('예상한 모양과 똑같이 돌아갔어요! 처음 모양과 다르니 ‘다른 작품 전시실’로 옮겼어요.'))); }
           else { b.classList.add('wrong'); shake(b); api.wrong(o.why); }
         };
         grid.appendChild(b);
       });
-      api.onReveal(() => { done = true; spinShow(st, f, false, () => api.giveUp('흐린 모양이 180° 돌린 모양이에요.')); });
+      api.onReveal(() => { done = true; spinShow(st, f, false, () => toRoom(f, () => api.giveUp('흐린 모양이 180° 돌린 모양이에요.'))); });
     }
     /** 점대칭도형이 아닌 이유 고르기 (지도서 오개념: 가운데 점, 선대칭과 혼동, 90° 돌리기) */
     function whyRound(area, api) {
       const it = pickItem(x => x.fig.kind !== 'circle' && !Fig.isPointSym(x.fig) && (Fig.axisCount(x.fig) > 0 || R.chance(0.4)));
       const f = it.fig, lineSym = Fig.axisCount(f) > 0;
-      area.appendChild(el('div', { class: 'q', html: `이 ${it.kind}${it.kind === '도형' ? '은' : '는'} <b>점대칭도형이 아니에요</b>. 그 까닭을 바르게 말한 것을 골라요.` }));
+      hall = galleryHall(area, moved, f);
+      area.appendChild(el('div', { class: 'q', html: `이 ${it.kind} 작품은 <b>점대칭도형이 아니라서</b> ‘다른 작품 전시실’로 가요. 그 까닭을 바르게 말한 것을 골라요.` }));
       const st = mainStage(area, f);
       const opts = [
         { t: '어떤 점을 중심으로 180° 돌려도 처음 모양과 완전히 겹치지 않아요.', ok: true },
@@ -990,12 +1170,12 @@
         const b = el('button', { class: 'opt', type: 'button' }, o.t);
         b.onclick = () => {
           if (done) return;
-          if (o.ok) { done = true; b.classList.add('right'); spinShow(st, f, false, () => api.correct('180° 돌려서 겹치는지가 점대칭도형을 정하는 기준이에요!')); }
+          if (o.ok) { done = true; b.classList.add('right'); spinShow(st, f, false, () => toRoom(f, () => api.correct('180° 돌려서 겹치는지가 점대칭도형을 정하는 기준이에요!'))); }
           else { b.classList.add('wrong'); shake(b); api.wrong(o.why); }
         };
         box.appendChild(b);
       });
-      api.onReveal(() => { done = true; spinShow(st, f, false, () => api.giveUp('점대칭도형인지는 <b>180° 돌렸을 때 처음 모양과 완전히 겹치는지</b>로 정해요.')); });
+      api.onReveal(() => { done = true; spinShow(st, f, false, () => toRoom(f, () => api.giveUp('점대칭도형인지는 <b>180° 돌렸을 때 처음 모양과 완전히 겹치는지</b>로 정해요.'))); });
     }
     function corrRound(area, api) {
       const names = ['평행사변형', 'Z모양', '육각평행', '번개', '바람개비', '정육각형', '직사각형', '마름모'];
@@ -1003,7 +1183,9 @@
       const nm = R.pick(left.length ? left : names); seen.add('corr' + nm);
       const f = Shapes.polyShape(nm, R.pick([0, 15, 30, 45, 90])).fig;
       const P = f.pts.map(p => [p[0] * 1.05, p[1] * 1.05]), n = P.length, L = KO.slice(0, n);
+      hall = galleryHall(area, moved, f);
       const st = new Stage(area, { x0: -5, y0: -4.4, w: 10, h: 8.8, cls: 'letter-stage' });
+      artFrame(st);
       st.poly(P, { class: 'shape fill-a' }); st.vertexLabels(P, L, { off: 0.5 });
       st.circle([0, 0], 0.13, { class: 'center-dot' }, 'ui'); st.text([0.35, 0.35], KO[n] || 'ㅇ', { class: 'vlabel center-lbl' });
       const i = R.int(0, n - 1), j = P.findIndex(p => V.near(p, V.rot180(P[i], [0, 0]), 1e-6));
@@ -1014,12 +1196,12 @@
       area.appendChild(opts);
       let options, right;
       if (t === 'point') {
-        q.innerHTML = `점 ${KO[n] || 'ㅇ'}을 대칭의 중심으로 하는 점대칭도형이에요. <b>점 ${L[i]}</b>의 대응점은?`;
+        q.innerHTML = `점 ${KO[n] || 'ㅇ'}을 대칭의 중심으로 하는 점대칭도형 작품이에요. 작품 카드에 적을 <b>점 ${L[i]}</b>의 대응점은?`;
         st.circle(P[i], 0.3, { class: 'given-ring' }, 'top');
         options = L.filter((_, k) => k !== i).map(x => '점 ' + x); right = '점 ' + L[j];
       } else {
         const i2 = (i + 1) % n, j2 = P.findIndex(p => V.near(p, V.rot180(P[i2], [0, 0]), 1e-6));
-        q.innerHTML = `점 ${KO[n] || 'ㅇ'}을 대칭의 중심으로 하는 점대칭도형이에요. <b>변 ${L[i]}${L[i2]}</b>의 대응변은?`;
+        q.innerHTML = `점 ${KO[n] || 'ㅇ'}을 대칭의 중심으로 하는 점대칭도형 작품이에요. 작품 카드에 적을 <b>변 ${L[i]}${L[i2]}</b>의 대응변은?`;
         st.line(P[i], P[i2], { class: 'given-side' }, 'top');
         options = L.map((x, k) => '변 ' + x + L[(k + 1) % n]).filter(x => x !== '변 ' + L[i] + L[i2]); right = '변 ' + L[j] + L[j2];
         if (!options.includes(right)) right = '변 ' + L[j2] + L[j];
@@ -1030,12 +1212,12 @@
         const b = el('button', { class: 'opt', type: 'button' }, o);
         b.onclick = () => {
           if (done) return;
-          if (o === right) { done = true; b.classList.add('right'); api.correct('180° 돌렸을 때 겹치는 곳을 찾았어요!'); }
+          if (o === right) { done = true; b.classList.add('right'); toRoom(f, () => api.correct('180° 돌렸을 때 겹치는 곳을 찾았어요! ‘돌려도 같은 작품 전시실’로 옮겼어요.')); }
           else { b.classList.add('wrong'); shake(b); api.wrong('대칭의 중심을 지나 반대쪽으로 같은 거리만큼 간 곳을 찾아요.'); }
         };
         opts.appendChild(b);
       });
-      api.onReveal(() => { done = true; api.giveUp('정답: <b>' + right + '</b>'); });
+      api.onReveal(() => { done = true; toRoom(f, () => api.giveUp('정답: <b>' + right + '</b>')); });
     }
   }
 
@@ -1209,10 +1391,10 @@
 
   window.Games = {
     g2: { title: '미술관 바닥 타일 수리', run: gameTiles },
-    g3: { title: '승현이의 판화 공방', run: gamePrint },
-    g4: { title: '거울 마술 전시실', run: gameWindow },
+    g3: { title: '스테인드글라스 창문 수리', run: gamePrint },
+    g4: { title: '종이 오리기 체험실', run: gameWindow },
     g5: { title: '데칼코마니 작품 복원', run: gameDecal },
-    g7: { title: '천장 글자 작품 감별사', run: gameLetters },
+    g7: { title: '돌려도 같은 작품 전시실', run: gameLetters },
     g9: { title: '바람개비 공원 만들기', run: gamePinwheel },
     g12: { title: '교통안전 체험관 표지판 분류', run: gameSort },
   };

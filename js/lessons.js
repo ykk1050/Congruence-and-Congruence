@@ -247,6 +247,7 @@
         c.box.appendChild(fb);
       },
       (c) => {
+        drawAll(new Stage(c.area(), { x0: 0, y0: 0, w: 30, h: 9 }));
         choice(c.box, {
           q: '도형 가와 완전히 겹치는 도형은 어느 것인가요?',
           options: ['나', '다', '라', '마'].map(k => ({ t: '도형 ' + k, ok: k === '라', why: k === '라' ? null : (k === '다' ? '도형 다는 모양은 비슷하지만 <b>크기</b>가 달라요.' : k === '마' ? '도형 마는 크기가 비슷하지만 <b>모양</b>이 달라요.' : '모양과 크기가 모두 달라요.') })),
@@ -505,6 +506,15 @@
         open(l4Shapes[0]);
       },
       (c) => {
+        const row = el('div', { class: 'thumbs fig-only' });
+        l4Shapes.forEach(s => {
+          const b = el('div', { class: 'thumb' });
+          const st = new Stage(b, { x0: -2.8, y0: -2.8, w: 5.6, h: 5.6 });
+          st.fig(s.f, { class: 'shape fill-a' });
+          b.appendChild(el('span', { class: 'tag' }, s.k));
+          row.appendChild(b);
+        });
+        c.box.appendChild(row);
         const tbl = el('table', { class: 'tbl' }, el('tr', {}, el('th', {}, '도형'), ...l4Shapes.map(s => el('th', {}, s.k))),
           el('tr', {}, el('td', {}, '대칭축의 수'), ...l4Shapes.map(s => { const n = Fig.axisCount(s.f); return el('td', {}, n === Infinity ? '셀 수 없이 많음' : n + '개'); })));
         c.box.appendChild(tbl);
@@ -627,10 +637,31 @@
     ]);
   };
 
+  /** 완성하기 전, 주어진 일부만 그린 모눈 그림 (성질을 먼저 생각해 보는 단계에서 함께 보여 줌) */
+  function partialFigure(box, cfg) {
+    const st = new Stage(box, { x0: -0.5, y0: -0.5, w: cfg.w + 1, h: cfg.h + 1, grid: true, cls: 'grid-stage' });
+    const G = cfg.given;
+    if (cfg.axis) {
+      const [A, B] = cfg.axis;
+      st.fullLine(A, B, { class: 'axis' }, 'help', 0.1);
+      st.text(V.add(A, [0.35, 0.25]), cfg.axisLabels[0], { class: 'vlabel axis-lbl' });
+      st.text(V.add(B, [0.35, -0.25]), cfg.axisLabels[1], { class: 'vlabel axis-lbl' });
+    } else {
+      st.circle(cfg.center, 0.14, { class: 'center-dot' }, 'ui');
+      st.text(V.add(cfg.center, [0.38, 0.3]), 'ㅇ', { class: 'vlabel center-lbl' });
+    }
+    st.polyline(G, { class: 'given-line' });
+    G.forEach(p => st.circle(p, 0.12, { class: 'vdot' }, 'ui'));
+    const c0 = Poly.centroid(G);
+    G.forEach((p, i) => { const d = V.norm(V.sub(p, c0)); st.text(V.add(p, V.mul(V.len(d) > 0.1 ? d : [-0.7, -0.7], 0.55)), cfg.labels[i], { class: 'vlabel' }); });
+    return st;
+  }
+
   ACT.l5d = function (root) {
     UI.runSteps(root, [
       (c) => {
         c.say('직선 ㅁㅂ을 대칭축으로 하는 선대칭도형의 <b>일부</b>가 그려져 있어요. 나머지를 완성하려면 대응점을 찾아야 해요.', 'guide');
+        partialFigure(c.area(), { w: 12, h: 8, axis: [[6, 0], [6, 8]], axisLabels: ['ㅁ', 'ㅂ'], given: [[6, 1], [3, 2], [1, 7], [6, 5]], labels: ['ㄱ', 'ㄴ', 'ㄷ', 'ㄹ'] });
         choice(c.box, {
           q: '대응점을 찾으려면 선대칭도형의 어떤 성질을 이용해야 할까요? <b>모두</b> 고르세요.', multi: true,
           options: [
@@ -938,6 +969,7 @@
     UI.runSteps(root, [
       (c) => {
         c.say('점 ㅇ을 대칭의 중심으로 하는 점대칭도형의 <b>일부</b>가 그려져 있어요. 나머지를 완성하려면 어떤 성질을 이용해야 할까요?', 'guide');
+        partialFigure(c.area(), { w: 10, h: 6, center: [5, 3], given: [[5, 1], [2, 0], [1, 5], [5, 5]], labels: ['ㄱ', 'ㄴ', 'ㄷ', 'ㄹ'] });
         choice(c.box, {
           q: '대응점을 찾을 때 이용하는 점대칭도형의 성질을 <b>모두</b> 고르세요.', multi: true,
           options: [

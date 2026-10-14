@@ -119,22 +119,46 @@
       let n = V.norm(V.rotVec(V.sub(b, a), 90));
       if (away && V.dot(V.sub(m, away), n) < -1e-9) n = V.mul(n, -1);
       if (opt.flip) n = V.mul(n, -1);
-      const h = Math.min(L * 0.3, 1.1) + (opt.lift || 0);
-      const c = V.add(m, V.mul(n, 2 * h));
       const g = this.add(sv('g', { class: 'dimg ' + (opt.cls || '') }), opt.layer || 'top');
-      g.appendChild(sv('path', { d: `M${a[0]},${a[1]} Q${c[0]},${c[1]} ${b[0]},${b[1]}`, class: 'dim-arc' }));
+      const arc = g.appendChild(sv('path', { class: 'dim-arc' }));
       // 글자는 호의 꼭대기 위에, 흰 바탕 상자와 함께
-      const t = V.add(m, V.mul(n, h));
       const bgR = sv('rect', { class: 'dim-bg', rx: this.fs * 0.25 });
       g.appendChild(bgR);
-      const tx = sv('text', { x: t[0], y: t[1], 'text-anchor': 'middle', 'dominant-baseline': 'central', class: 'measure dim-text ' + (opt.cls || '') }, text);
+      const tx = sv('text', { 'text-anchor': 'middle', 'dominant-baseline': 'central', class: 'measure dim-text ' + (opt.cls || '') }, text);
       g.appendChild(tx);
       let w = 0, hh = 0;
       try { const bb = tx.getBBox(); w = bb.width; hh = bb.height; } catch (e) { /* 아직 화면에 없을 때 */ }
-      if (!w) { w = this.fs * 0.62 * String(text).length; hh = this.fs * 1.1; }
+      if (!w) { w = this.fs * 0.62 * [...String(text)].reduce((s, ch) => s + (ch.charCodeAt(0) > 0x2fff ? 1.6 : 1), 0); hh = this.fs * 1.1; }
       const px = this.fs * 0.22, py = this.fs * 0.08;
-      Object.entries({ x: t[0] - w / 2 - px, y: t[1] - hh / 2 - py, width: w + 2 * px, height: hh + 2 * py }).forEach(([k, v]) => bgR.setAttribute(k, v));
+      const boxAt = (t) => ({ x: t[0] - w / 2 - px, y: t[1] - hh / 2 - py, width: w + 2 * px, height: hh + 2 * py });
+      // 이미 그려 둔 길이 상자·꼭짓점 이름과 겹치면 호를 조금씩 더 높여(그래도 겹치면 반대쪽으로) 피한다
+      this._dims = (this._dims || []).filter(d => d.g.parentNode);
+      const others = this._dims.map(d => d.box).concat(this._labelBoxes());
+      const gap = this.fs * 0.12;
+      const hits = (r) => others.some(o => r.x < o.x + o.width + gap && o.x < r.x + r.width + gap && r.y < o.y + o.height + gap && o.y < r.y + r.height + gap);
+      const h0 = Math.min(L * 0.3, 1.1) + (opt.lift || 0);
+      let h = h0, nn = n, t = V.add(m, V.mul(n, h));
+      search: for (const s of [1, -1]) {
+        for (let k = 0; k < 10; k++) {
+          const hk = h0 + k * this.fs * 0.45, tk = V.add(m, V.mul(n, s * hk));
+          if (!hits(boxAt(tk))) { h = hk; nn = V.mul(n, s); t = tk; break search; }
+        }
+      }
+      const c = V.add(m, V.mul(nn, 2 * h));
+      arc.setAttribute('d', `M${a[0]},${a[1]} Q${c[0]},${c[1]} ${b[0]},${b[1]}`);
+      tx.setAttribute('x', t[0]); tx.setAttribute('y', t[1]);
+      const box = boxAt(t);
+      Object.entries(box).forEach(([k, v]) => bgR.setAttribute(k, v));
+      this._dims.push({ g, box });
       return g;
+    }
+    /** 화면에 있는 꼭짓점 이름 글자의 대략적인 자리 (길이 상자가 가리지 않도록) */
+    _labelBoxes() {
+      const r = this.fs * 0.5;
+      return [...this.svg.querySelectorAll('text.vlabel')].map(t => {
+        const x = +t.getAttribute('x'), y = +t.getAttribute('y');
+        return { x: x - r, y: y - r, width: 2 * r, height: 2 * r };
+      }).filter(b => isFinite(b.x) && isFinite(b.y));
     }
     on(h) {
       Object.assign(this.handlers, h);

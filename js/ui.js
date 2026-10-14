@@ -56,8 +56,21 @@
         dots.appendChild(d);
       });
     }
+    // 단계를 떠날 때 그 단계의 그림(무대·표·기록)을 복사해 둔다.
+    // 그림이 없는 다음 단계(정리 문제 등)에서 ‘앞 단계 그림’으로 다시 보여 주어 이전으로 돌아가지 않아도 되게 한다.
+    const snaps = {};
+    function snapshot() {
+      if (!box.querySelector('svg.stage, table')) return null;
+      const copy = box.cloneNode(true);
+      copy.querySelectorAll('.bubble, .controls, .btn, .fb, .qi, .choice, .fill, .order, .numq, .concept, .prev-fig, .tile-tools').forEach(n => n.remove());
+      if (!copy.querySelector('svg.stage, table')) return null;
+      copy.className = 'prev-fig-body';
+      copy.querySelectorAll('[id]').forEach(n => n.removeAttribute('id'));
+      return copy;
+    }
     function go(i) {
       if (i < 0 || i >= steps.length) { if (i >= steps.length && opt.onFinish) opt.onFinish(); return; }
+      if (box.firstChild) { const s = snapshot(); if (s) snaps[idx] = s; }
       idx = i;
       clear(box);
       renderDots();
@@ -77,6 +90,10 @@
         index: i,
       };
       steps[i](ctx);
+      if (!box.querySelector('svg.stage') && snaps[i - 1]) {
+        box.insertBefore(el('details', { class: 'prev-fig', open: '' },
+          el('summary', {}, '👀 앞 단계에서 본 그림'), snaps[i - 1].cloneNode(true)), box.firstChild);
+      }
       window.scrollTo({ top: 0, behavior: 'smooth' });
     }
     go(0);

@@ -47,8 +47,11 @@ b { font-weight: 700; }
   padding: 10px max(16px, env(safe-area-inset-left)); background: var(--navy); color: #fff;
   box-shadow: 0 2px 10px rgba(0, 0, 0, .15);
 }
-.brand { display: flex; align-items: center; gap: 8px; color: #fff; text-decoration: none; font-family: var(--font-title); font-size: 1.25rem; white-space: nowrap; }
-.logo { display: inline-grid; place-items: center; width: 34px; height: 34px; border-radius: 10px; background: var(--sun); color: var(--navy); font-size: 1rem; }
+.home-btn { display: inline-flex; align-items: center; gap: 6px; min-height: 44px; padding: 0 14px 0 10px; border-radius: 12px; background: var(--sun); color: var(--navy); text-decoration: none; font-family: var(--font-title); font-size: 1.05rem; white-space: nowrap; box-shadow: 0 3px 0 rgba(0, 0, 0, .25); transition: transform .1s, box-shadow .1s; }
+.home-btn:active { transform: translateY(2px); box-shadow: 0 1px 0 rgba(0, 0, 0, .25); }
+.home-btn:focus-visible { outline: 3px solid #fff; outline-offset: 2px; }
+.home-ico { width: 24px; height: 24px; fill: none; stroke: currentColor; stroke-width: 2.4; stroke-linecap: round; stroke-linejoin: round; }
+.brand-name { color: #fff; font-family: var(--font-title); font-size: 1.2rem; white-space: nowrap; }
 .crumb { flex: 1; min-width: 0; display: flex; flex-wrap: wrap; align-items: center; gap: 4px; font-size: .95rem; opacity: .95; }
 .crumb a { color: #ffe9a8; text-decoration: none; }
 .crumb .sep { opacity: .6; margin: 0 2px; }
@@ -381,6 +384,8 @@ b { font-weight: 700; }
 @media (max-width: 760px) {
   body { font-size: 16px; }
   .brand-name { display: none; }
+  .home-txt { display: none; }
+  .home-btn { padding: 0 10px; }
   .hero { flex-direction: column; align-items: flex-start; padding: 20px; }
   .hero h1 { font-size: 1.7rem; }
   .hero-art { font-size: 2.6rem; }
@@ -558,3 +563,62 @@ b { font-weight: 700; }
 .thumb.right { border-color: var(--good); background: #ebfbee; }
 .thumb.wrong { border-color: #e8590c; opacity: .6; }
 @media (max-width: 600px) { .thumbs { grid-template-columns: repeat(2, 1fr); } }
+
+/* =========================================================
+   3차 수정: 앞 단계 그림, 스테인드글라스, 종이 오리기, 데칼코마니, 돌려도 같은 작품 전시실
+   ========================================================= */
+/* 그림이 없는 단계에서 앞 단계 그림 다시 보기 */
+.prev-fig { margin: 4px 0 12px; border: 2px dashed #c5d3f0; border-radius: 16px; background: #f8faff; padding: 6px 10px; }
+.prev-fig summary { cursor: pointer; font-weight: 700; color: var(--navy-2); padding: 4px 2px; }
+.prev-fig-body { pointer-events: none; }
+.prev-fig-body .stage { max-height: 34vh; }
+.prev-fig-body .thumb { cursor: default; }
+.thumbs.fig-only .thumb { cursor: default; }
+
+/* 스테인드글라스 창문 수리 */
+.sg-wall { fill: #d9cbb0; }
+.sg-frame { fill: #8d7b5f; stroke: #5c4d36; stroke-width: 10px; vector-effect: non-scaling-stroke; stroke-linejoin: round; }
+.sg-sky { fill: #eef6ff; }
+.sg-cell { stroke: #4a4a5a; stroke-width: 1.2px; vector-effect: non-scaling-stroke; opacity: .9; }
+.sg-frame-in { fill: none; stroke: #3d3326; stroke-width: 4px; vector-effect: non-scaling-stroke; }
+.shape.sg-piece { stroke: #1f1f2b; stroke-width: 5px; fill-opacity: .9; }
+.shape.sg-piece.cracked { fill-opacity: .55; }
+.shape.sg-piece.fixed { animation: sg-shine 1.2s ease-out 2; }
+@keyframes sg-shine { 50% { fill-opacity: 1; filter: brightness(1.35); } }
+.sg-crack polyline { stroke: #fff; stroke-width: 2.5px; vector-effect: non-scaling-stroke; stroke-linejoin: bevel; filter: drop-shadow(0 0 .03px #000); }
+.sg-plate { fill: #5c4d36; }
+.sg-plate-lbl { fill: #fff3d6 !important; font-size: .82em !important; }
+
+/* 종이 오리기 체험실 (코르크 게시판) */
+.cut-room .stage { background: #d6ab73 radial-gradient(circle at 30% 30%, rgba(120, 80, 30, .18) 1px, transparent 1.6px) 0 0 / 9px 9px; }
+.cut-room .shape.paper-cut { stroke: rgba(0, 0, 0, .25); stroke-width: 1px; filter: drop-shadow(.04px .1px .05px rgba(60, 35, 10, .45)); }
+.shape.paper-1 { fill: #ff8787; } .shape.paper-2 { fill: #74c0fc; } .shape.paper-3 { fill: #8ce99a; } .shape.paper-4 { fill: #ffd43b; } .shape.paper-5 { fill: #b197fc; }
+.cut-room .fold-gone { fill: #d6ab73; }
+.pin { fill: #e03131; stroke: #fff; stroke-width: 1.5px; vector-effect: non-scaling-stroke; filter: drop-shadow(0 .05px .03px rgba(0, 0, 0, .4)); }
+.cut-tag { fill: #fffdf5; stroke: #c9a26b; stroke-width: 1px; vector-effect: non-scaling-stroke; }
+.cut-tag-lbl { font-size: .75em !important; fill: #6b4f2a !important; }
+
+/* 데칼코마니 */
+.paint-paper { fill: rgba(255, 236, 200, .35); }
+.paint-blob { opacity: .68; }
+.decal .shape.done-fill { fill: none; }
+
+/* 돌려도 같은 작품 전시실 */
+.stage.hall-stage { margin-bottom: 8px; background: #efe2c9; max-height: 25vh; }
+.hl-wall { fill: #efe2c9; }
+.hl-floor { fill: #b98b5a; }
+.hl-room { fill: #f8f1e3; }
+.hl-room-floor { fill: #c99a66; }
+.hl-post { fill: #8a6a3a; }
+.hl-sign { fill: #2b3a67; transition: fill .3s; }
+.hl-sign.other { fill: #5f4b8b; }
+.hl-sign.lit { fill: #e8590c; }
+.hl-sign-lbl { fill: #fff; font-family: var(--font-title) !important; font-weight: 400 !important; font-size: .62em; }
+.hl-new-lbl { fill: #6b4f2a; font-family: var(--font-title) !important; font-weight: 400 !important; font-size: .6em; }
+.hl-easel { stroke: #7a5a2e; stroke-width: 4px; vector-effect: non-scaling-stroke; stroke-linecap: round; }
+.hl-work-frame { fill: #c99a2e; stroke: #8a6a1e; stroke-width: 1px; vector-effect: non-scaling-stroke; }
+.hl-work-canvas { fill: #fffdf6; }
+.hl-work .shape { stroke-width: 1.2px; }
+.art-frame { fill: #c99a2e; stroke: #8a6a1e; stroke-width: 1.5px; vector-effect: non-scaling-stroke; }
+.art-canvas { fill: #fffdf6; }
+.stage.letter-stage { background: #efe2c9; max-height: 42vh; }
