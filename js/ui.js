@@ -871,14 +871,14 @@
         stage.text(V.add(p, V.mul(out, 0.55)), lg.img[j], { class: 'vlabel new' });
       }
     }
-    function finishAll() {
+    function finishAll(revealed) {
       phase = 'done'; finished = true;
       const poly = stage.poly(finalPoly, { class: 'shape done-fill' + (cfg.pegs ? ' band-fill' : '') }, 'main');
       if (cfg.pegs) stage.poly(finalPoly, { class: 'band' }, 'main');
       poly.style.opacity = 0;
       animate(500, t => { poly.style.opacity = t; });
-      prompt.innerHTML = '🎉 완성했어요!';
-      cfg.onDone && cfg.onDone({ mistakes, poly: finalPoly });
+      prompt.innerHTML = revealed ? '바른 대응점으로 완성한 모양이에요.' : '🎉 완성했어요!';
+      cfg.onDone && cfg.onDone({ mistakes, poly: finalPoly, revealed: !!revealed });
       if (cfg.verify !== false) ctrl.appendChild(verifyBtn());
     }
     function verifyBtn() {
@@ -896,6 +896,68 @@
     function startConnect() {
       phase = 'connect'; seqIdx = 0; seqDir = 0; drawn = null; setPrompt();
     }
+    /* ----- free: 점을 찍을 때마다 맞고 틀림을 알려 주지 않는다.
+       점을 모두 찍어 도형이 완성되면 그때 확인하고, 틀렸으면 한 번 더 기회를 준다. ----- */
+    const mine = [];           // 학생이 찍은 점 [{p, node}]
+    let attempt = 0, wrongNodes = [];
+    function freePrompt() {
+      const left = todo.length - mine.length;
+      prompt.innerHTML = `대응점이 될 ${cfg.pegs ? '못' : '점'}을 눌러 표시해요. <span class="muted">남은 점: ${left}개 · 찍은 점을 다시 누르면 지워져요${cfg.helper !== false ? ' · 주어진 꼭짓점을 누르면 ' + helpName + '이 그어져요' : ''}</span>`;
+    }
+    /** 학생이 찍은 점을 주어진 꼭짓점과 짝지어(가장 가깝게) 완성된 도형을 만든다 */
+    function mineToPoly() {
+      const targets = todo.map(img), pts = mine.map(m => m.p);
+      let best = null, bestD = Infinity;
+      const perm = (arr, k) => {
+        if (k === arr.length) { const d = arr.reduce((s, pi, ti) => s + V.dist(pts[pi], targets[ti]), 0); if (d < bestD) { bestD = d; best = arr.slice(); } return; }
+        for (let i = k; i < arr.length; i++) { [arr[k], arr[i]] = [arr[i], arr[k]]; perm(arr, k + 1); [arr[k], arr[i]] = [arr[i], arr[k]]; }
+      };
+      perm(pts.map((_, i) => i), 0);
+      const ordered = best.map(pi => pts[pi]);
+      return line ? G.concat(ordered.slice().reverse()) : G.concat(ordered);
+    }
+    function freeCheck() {
+      const ok = todo.every(v => mine.some(m => V.near(m.p, img(v))));
+      attempt++;
+      if (ok) {
+        mine.forEach(m => m.node.remove()); mine.length = 0;
+        todo.forEach((_, j) => place(j));
+        fb.className = 'fb good'; fb.textContent = attempt === 1 ? '한 번에 선대칭도형을 완성했어요!' : '이번에는 선대칭도형이 되었어요!';
+        Sound.good(); finishAll();
+        return;
+      }
+      mistakes++; Sound.bad();
+      phase = 'wrong';
+      const W2 = mineToPoly();
+      wrongNodes.push(stage.poly(W2, { class: 'shape wrong-fill' }, 'main'), stage.poly(W2, { class: 'band wrong-band' }, 'main'));
+      const fold = () => {
+        if (line && Poly.isSimple(W2)) foldAnim(stage, W2, A, B, { moveSide: img(todo[0]), good: false, hold: 1200 });
+        else if (!line) { const gh = stage.poly(W2, { class: 'shape ghost-bad' }, 'top'); animate(1200, t => stage.setPoints(gh, W2.map(p => V.rot(p, O, 180 * t))), () => setTimeout(() => gh.remove(), 900)); }
+      };
+      fold();
+      if (attempt === 1) {
+        fb.className = 'fb bad';
+        fb.innerHTML = line ? '완성한 도형을 대칭축으로 접어 보니 <b>완전히 겹치지 않아요</b>. 선대칭도형이 아니에요.<br>대응점은 주어진 점에서 대칭축에 그은 <b>수선</b> 위에, 대칭축까지의 <b>거리가 같은</b> 곳에 있어요. 한 번 더 해 볼까요?'
+          : '180° 돌려 보니 <b>처음 도형과 겹치지 않아요</b>. 점대칭도형이 아니에요.<br>대응점은 대칭의 중심을 지나는 직선 위, 중심까지의 <b>거리가 같은</b> 곳에 있어요. 한 번 더 해 볼까요?';
+        clear(ctrl);
+        ctrl.appendChild(btn('🔁 다시 해 보기', () => {
+          wrongNodes.forEach(n => n.remove()); wrongNodes = [];
+          mine.forEach(m => m.node.remove()); mine.length = 0;
+          clear(ctrl); fb.className = 'fb'; fb.textContent = '';
+          phase = 'place'; freePrompt();
+        }, 'primary'));
+        prompt.innerHTML = '도형이 완성되었어요. 선대칭도형이 맞는지 확인해 봐요.'.replace('선대칭', line ? '선대칭' : '점대칭');
+        return;
+      }
+      // 두 번째도 틀리면 바른 대응점을 보여 준다
+      fb.className = 'fb bad';
+      fb.innerHTML = '이번에도 완전히 겹치지 않아요. <b>파란 점</b>이 바른 대응점이에요. 내가 찍은 점과 비교해 보세요.';
+      setTimeout(() => {
+        wrongNodes.forEach(n => n.remove()); wrongNodes = [];
+        todo.forEach((_, j) => place(j));
+        finishAll(true);
+      }, line ? 2600 : 2300);
+    }
     stage.on({
       tap: (p) => {
         if (finished) return;
@@ -904,6 +966,16 @@
         if (phase === 'place' && gi >= 0 && cfg.helper !== false && !onAxis(G[gi]) && !(gi === 0 || gi === G.length - 1)) { helper(G[gi]); Sound.tap(); return; }
         const q = stage.snap(p, 0.42);
         if (!q) return;
+        if (cfg.free) {
+          if (phase !== 'place') return;
+          const k = mine.findIndex(m => V.near(m.p, q));
+          if (k >= 0) { mine[k].node.remove(); mine.splice(k, 1); Sound.tap(); freePrompt(); return; }
+          if (G.some(g => V.near(g, q))) return;
+          mine.push({ p: q, node: stage.circle(q, 0.17, { class: 'vdot mine' }, 'ui') });
+          Sound.tap();
+          if (mine.length === todo.length) freeCheck(); else freePrompt();
+          return;
+        }
         if (phase === 'place') {
           const i = curIdx();
           let j = -1;
@@ -936,7 +1008,7 @@
         }
       },
     });
-    setPrompt();
+    if (cfg.free) freePrompt(); else setPrompt();
     return {
       stage, finalPoly,
       revealAll() {

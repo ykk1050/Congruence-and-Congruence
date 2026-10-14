@@ -80,7 +80,7 @@
       inputs.forEach(x => {
         const v = x.value.replace(/\s/g, ''), a = x.dataset.ans;
         x.disabled = true;
-        if (v === a) { x.value = a; x.classList.add('right'); return; }
+        if (v === a.replace(/\s/g, '')) { x.value = a; x.classList.add('right'); return; }
         wrong.push(`‘${v}’ → <b>${a}</b>`);
         x.value = a; x.classList.add('fixed');
       });
@@ -216,6 +216,11 @@
     }, 'secondary small');
   }
 
+  /** 개념 상자 그림: a와 b를 잇는 (굽은) 양쪽 화살표 */
+  function termLink(st, a, b, curve) {
+    st.path(curve ? `M${a[0]},${a[1]} Q${curve[0]},${curve[1]} ${b[0]},${b[1]}` : `M${a[0]},${a[1]} L${b[0]},${b[1]}`, { class: 'term-arrow' }, 'help');
+    arrowHead(st, a, V.sub(a, curve || b)); arrowHead(st, b, V.sub(b, curve || a));
+  }
   const shift = (P, dx, dy) => P.map(p => [p[0] + dx, p[1] + dy]);
   const centerAt0 = (P) => { const c = Poly.centroid(P); return P.map(p => V.sub(p, c)); };
 
@@ -365,8 +370,9 @@
         const st = new Stage(c.area(), { x0: 0, y0: 0, w: 25, h: 11, grid: true });
         st.svg.classList.add('tappable');
         const nodes = {};
-        items.forEach(it => {
-          nodes[it.k] = st.fig(it.f, { class: 'shape plain' });
+        const colors = R.shuffle(Stage.ART.slice());
+        items.forEach((it, k) => {
+          nodes[it.k] = st.fig(it.f, { class: 'shape plain', style: `fill:${colors[k % colors.length]}` });
           const cc = it.f.kind === 'circle' ? it.f.c : Poly.centroid(it.f.pts);
           st.text(it.f.kind === 'circle' ? cc : V.add(cc, [0, 0.1]), it.k, { class: 'cap' });
         });
@@ -634,9 +640,26 @@
           onDone: () => {
             const g = Store.get('l4a:guess', []);
             if (g.length) c.say(`처음 예상(${g.join(', ')})과 비교해 보세요. 친구가 그은 대칭축과도 비교해 보세요!`, 'seung');
-            conceptCard(c.box, '선대칭도형과 대칭축', '한 직선을 따라 접었을 때 완전히 겹치는 도형을 <b>선대칭도형</b>이라고 합니다. 이때 그 직선을 <b>대칭축</b>이라고 합니다.<br>도형의 모양에 따라 대칭축은 <b>여러 개</b>일 수 있어요. (원은 셀 수 없이 많아요)');
             c.done();
           },
+        });
+      },
+      (c) => {
+        c.say('도형 나, 라, 마처럼 한 직선을 따라 접었을 때 완전히 겹치는 도형과 그 직선을 무엇이라고 하는지 알아봐요. 빈칸에 알맞은 말을 <b>직접 써</b> 보세요.', 'guide');
+        let tags = [];
+        termCard(c, {
+          parts: ['한 직선을 따라 접었을 때 완전히 겹치는 도형을 ', { ans: '선대칭도형' }, '이라고 합니다. 이때 그 직선을 ', { ans: '대칭축' }, '이라고 합니다.'],
+          figure: (box) => {
+            const st = new Stage(box, { x0: -0.6, y0: -1.2, w: 10, h: 9.4, cls: 'term-stage' });
+            const H = Shapes.polyLib.집모양().map(p => [4 + p[0] * 0.95, 3.6 + p[1] * 0.95]);
+            st.poly(H, { class: 'shape term-tri' });
+            st.line([4, -0.4], [4, 6.9], { class: 'axis' }, 'help');
+            termLink(st, [6.9, 0.7], [4.15, 1.6]);
+            tags = [pill(st, [4, 7.7], '?', 'p1'), pill(st, [7.6, 0.2], '?', 'p2')];
+          },
+          onReveal: () => ['선대칭도형', '대칭축'].forEach((t, i) => tags[i].set(t)),
+          good: '정답! 접었을 때 완전히 겹치는 도형은 <b>선대칭도형</b>, 접은 직선은 <b>대칭축</b>이에요.',
+          after: () => conceptCard(c.box, '선대칭도형과 대칭축', '한 직선을 따라 접었을 때 완전히 겹치는 도형을 <b>선대칭도형</b>이라고 합니다. 이때 그 직선을 <b>대칭축</b>이라고 합니다.<br>도형의 모양에 따라 대칭축은 <b>여러 개</b>일 수 있어요. (원은 셀 수 없이 많아요)'),
         });
       },
     ]);
@@ -656,8 +679,32 @@
             .concat([[0, 1, 2], [1, 2, 3]].map(g => ({ type: 'angle', given: g }))),
           hintText: () => '대칭축 ㅅㅇ을 따라 접으면 어디와 겹칠지 생각해 보세요. <b>대칭축으로 접어 확인</b>을 눌러 볼 수도 있어요.',
           tools: (st, ctl) => ctl.appendChild(motionButton(st, P, figs[0].labels, 'fold', null, [[0, -4], [0, 4]], '📖 대칭축으로 접어 확인')),
-          onDone: () => { conceptCard(c.box, '선대칭도형의 대응점, 대응변, 대응각', '대칭축을 따라 접었을 때 겹치는 점을 <b>대응점</b>, 겹치는 변을 <b>대응변</b>, 겹치는 각을 <b>대응각</b>이라고 합니다.'); c.done(); },
+          onDone: () => { c.say('대칭축을 따라 접었을 때 겹치는 점·변·각을 모두 찾았어요! 교과서 개념 상자를 완성해 봐요.', 'guide'); c.done(); },
         }));
+      },
+      (c) => {
+        c.say('선대칭도형을 대칭축을 따라 접었을 때 겹치는 점, 변, 각을 무엇이라고 할까요? 그림의 화살표를 보고 빈칸에 알맞은 말을 <b>직접 써</b> 보세요.', 'guide');
+        let tags = [];
+        termCard(c, {
+          wide: true,
+          parts: ['대칭축을 따라 접었을 때 겹치는 점을 ', { ans: '대응점' }, ', 겹치는 변을 ', { ans: '대응변' }, ', 겹치는 각을 ', { ans: '대응각' }, '이라고 합니다.'],
+          figure: (box) => {
+            // 교과서 그림: 오각형 선대칭도형, 대칭축, 겹치는 점·변·각을 잇는 화살표
+            const T = [[4, 0.8], [7.6, 3.2], [6.4, 6.6], [1.6, 6.6], [0.4, 3.2]];
+            const st = new Stage(box, { x0: -1.4, y0: -1.6, w: 10.8, h: 10.2, cls: 'term-stage' });
+            st.poly(T, { class: 'shape term-tri' });
+            st.line([4, -0.2], [4, 7.6], { class: 'axis' }, 'help');
+            st.angleArc(T, 4, 0.75, { class: 'arc term-arc' }); st.angleArc(T, 1, 0.75, { class: 'arc term-arc' });
+            termLink(st, V.mid(T[4], T[0]), V.mid(T[0], T[1]), [4, -1.6]);              // 대응변
+            termLink(st, V.add(T[4], [0.95, 0.05]), V.add(T[1], [-0.95, 0.05]));       // 대응각
+            termLink(st, V.add(T[3], [-0.1, 0.25]), V.add(T[2], [0.1, 0.25]), [4, 9.4]); // 대응점
+            pill(st, [5.6, 5.3], '대칭축', 'p0');
+            tags = [pill(st, [4, 8.0], '?', 'p1'), pill(st, [4, -0.75], '?', 'p2'), pill(st, [4, 3.25], '?', 'p3')];
+          },
+          onReveal: () => ['대응점', '대응변', '대응각'].forEach((t, i) => tags[i].set(t)),
+          good: '정답! 대칭축을 따라 접었을 때 겹치는 점은 <b>대응점</b>, 변은 <b>대응변</b>, 각은 <b>대응각</b>이에요.',
+          after: () => conceptCard(c.box, '선대칭도형의 대응점, 대응변, 대응각', '대칭축을 따라 접었을 때 겹치는 점을 <b>대응점</b>, 겹치는 변을 <b>대응변</b>, 겹치는 각을 <b>대응각</b>이라고 합니다.'),
+        });
       },
     ]);
   };
@@ -843,7 +890,7 @@
             clear(zone);
             zone.appendChild(UI.bubble('이제 <b>친구 차례</b>예요! 친구가 만든 도형을 선대칭도형이 되도록 완성해 주세요. 대응점이 될 못을 눌러요.', 'seung'));
             GridComplete(zone, {
-              mode: 'line', w: r.n, h: r.n, axis: r.axis, given: r.given, pegs: true,
+              mode: 'line', w: r.n, h: r.n, axis: r.axis, given: r.given, pegs: true, free: true,
               onDone: () => {
                 c.done();
                 zone.appendChild(el('div', { class: 'controls' }, btn('🔄 역할을 바꾸어 새로 만들기', make, 'primary')));
@@ -926,9 +973,32 @@
                 { t: '반으로 접었을 때 완전히 겹치는지 확인해요.', why: '그것은 선대칭도형인지 알아보는 방법이에요.' },
                 { t: '90° 돌렸을 때 완전히 겹치는지 확인해요.', why: '점대칭도형은 180° 돌렸을 때 처음 도형과 겹치는 도형이에요.' },
               ],
-              onDone: () => { conceptCard(c.box, '점대칭도형과 대칭의 중심', '한 도형을 어떤 점을 중심으로 <b>180°</b> 돌렸을 때 처음 도형과 완전히 겹치면 이 도형을 <b>점대칭도형</b>이라고 합니다. 이때 그 점을 <b>대칭의 중심</b>이라고 합니다.'); c.done(); },
+              onDone: () => c.done(),
             });
           },
+        });
+      },
+      (c) => {
+        c.say('도형 가, 라, 마처럼 어떤 점을 중심으로 180° 돌렸을 때 처음 도형과 완전히 겹치는 도형과 그 점을 무엇이라고 하는지 알아봐요. 빈칸에 알맞은 말을 <b>직접 써</b> 보세요.', 'guide');
+        let tags = [];
+        termCard(c, {
+          parts: ['한 도형을 어떤 점을 중심으로 180° 돌렸을 때 처음 도형과 완전히 겹치면 이 도형을 ', { ans: '점대칭도형' }, '이라고 합니다. 이때 그 점을 ', { ans: '대칭의 중심' }, '이라고 합니다.'],
+          figure: (box) => {
+            const st = new Stage(box, { x0: -0.8, y0: -1.4, w: 10.6, h: 9.2, cls: 'term-stage' });
+            const Q = [[0.6, 5.6], [2.6, 1], [8.4, 1], [6.4, 5.6]], O = [4.5, 3.3];
+            st.poly(Q, { class: 'shape term-tri' });
+            // 180° 돌리기 화살표
+            const r = 1.15, a0 = V.add(O, V.rotVec([r, 0], 200)), a1 = V.add(O, V.rotVec([r, 0], 20));
+            st.path(`M${a0[0]},${a0[1]} A${r},${r} 0 0 1 ${a1[0]},${a1[1]}`, { class: 'term-arrow' }, 'help');
+            arrowHead(st, a1, V.rotVec(V.sub(a1, O), 90));
+            st.text(V.add(O, [0, -r - 0.45]), '180°', { class: 'measure small' });
+            st.circle(O, 0.14, { class: 'center-dot' }, 'ui');
+            termLink(st, [8.0, 6.4], V.add(O, [0.2, 0.2]), [7.4, 3.9]);
+            tags = [pill(st, [3.4, 6.9], '?', 'p1'), pill(st, [8.4, 7.0], '?', 'p2')];
+          },
+          onReveal: () => ['점대칭도형', '대칭의 중심'].forEach((t, i) => tags[i].set(t)),
+          good: '정답! 180° 돌렸을 때 완전히 겹치는 도형은 <b>점대칭도형</b>, 돌린 중심이 되는 점은 <b>대칭의 중심</b>이에요.',
+          after: () => conceptCard(c.box, '점대칭도형과 대칭의 중심', '한 도형을 어떤 점을 중심으로 <b>180°</b> 돌렸을 때 처음 도형과 완전히 겹치면 이 도형을 <b>점대칭도형</b>이라고 합니다. 이때 그 점을 <b>대칭의 중심</b>이라고 합니다.<br>가운데에 점이 있다고 모두 점대칭도형은 아니에요. <b>180° 돌려 겹치는지</b> 확인해요.'),
         });
       },
     ]);
@@ -949,8 +1019,34 @@
           linkPoints: true,
           hintText: () => '점 ㅇ을 중심으로 180° 돌리면 어디로 갈지 생각해 보세요. <b>180° 돌려 확인</b>을 눌러 볼 수도 있어요.',
           tools: (st, ctl) => ctl.appendChild(motionButton(st, hexP, figs[0].labels, 'rot', [0, 0], null, '↻ 180° 돌려 확인')),
-          onDone: () => { conceptCard(c.box, '점대칭도형의 대응점, 대응변, 대응각', '대칭의 중심을 중심으로 180° 돌렸을 때 겹치는 점을 <b>대응점</b>, 겹치는 변을 <b>대응변</b>, 겹치는 각을 <b>대응각</b>이라고 합니다.'); c.done(); },
+          onDone: () => { c.say('180° 돌렸을 때 겹치는 점·변·각을 모두 찾았어요! 교과서 개념 상자를 완성해 봐요.', 'guide'); c.done(); },
         }));
+      },
+      (c) => {
+        c.say('점대칭도형을 대칭의 중심을 중심으로 180° 돌렸을 때 겹치는 점, 변, 각을 무엇이라고 할까요? 그림의 화살표를 보고 빈칸에 알맞은 말을 <b>직접 써</b> 보세요.', 'guide');
+        let tags = [];
+        termCard(c, {
+          wide: true,
+          parts: ['대칭의 중심을 중심으로 180° 돌렸을 때 겹치는 점을 ', { ans: '대응점' }, ', 겹치는 변을 ', { ans: '대응변' }, ', 겹치는 각을 ', { ans: '대응각' }, '이라고 합니다.'],
+          figure: (box) => {
+            // 평행사변형 점대칭도형: 겹치는 점·변·각을 잇는 화살표
+            const Q = [[-4, 2], [-1.8, -2], [4, -2], [1.8, 2]], O = [0, 0];
+            const st = new Stage(box, { x0: -6.4, y0: -4.6, w: 12.8, h: 9.4, cls: 'term-stage' });
+            st.poly(Q, { class: 'shape term-tri' });
+            st.circle(O, 0.13, { class: 'center-dot' }, 'ui');
+            st.angleArc(Q, 1, 0.7, { class: 'arc term-arc' }); st.angleArc(Q, 3, 0.7, { class: 'arc term-arc' });
+            termLink(st, V.add(Q[0], [0.35, -0.18]), V.add(Q[2], [-0.35, 0.18]));                      // 대응점 (대칭의 중심을 지남)
+            // 대응변: 왼쪽 변과 오른쪽 변을 도형 위로 돌아가는 화살표로 잇기
+            const s0 = [-3.45, -0.25], s1 = [3.45, 0.25], k0 = [-6.4, -5.2], k1 = [6.4, -5.2];
+            st.path(`M${s0[0]},${s0[1]} C${k0[0]},${k0[1]} ${k1[0]},${k1[1]} ${s1[0]},${s1[1]}`, { class: 'term-arrow' }, 'help');
+            arrowHead(st, s0, V.sub(s0, k0)); arrowHead(st, s1, V.sub(s1, k1));
+            termLink(st, V.add(Q[1], [0.25, 0.85]), V.add(Q[3], [-0.25, -0.85]));                     // 대응각
+            tags = [pill(st, [-2.4, 1.2], '?', 'p1'), pill(st, [0, -3.85], '?', 'p2'), pill(st, [1.0, 0.74], '?', 'p3')];
+          },
+          onReveal: () => ['대응점', '대응변', '대응각'].forEach((t, i) => tags[i].set(t)),
+          good: '정답! 180° 돌렸을 때 겹치는 점은 <b>대응점</b>, 변은 <b>대응변</b>, 각은 <b>대응각</b>이에요.',
+          after: () => conceptCard(c.box, '점대칭도형의 대응점, 대응변, 대응각', '대칭의 중심을 중심으로 180° 돌렸을 때 겹치는 점을 <b>대응점</b>, 겹치는 변을 <b>대응변</b>, 겹치는 각을 <b>대응각</b>이라고 합니다.'),
+        });
       },
     ]);
   };

@@ -5,6 +5,10 @@
   'use strict';
   const { sv, V, Poly, Fig } = C;
 
+  /** 작품을 칠할 색 (밝고 선명한 색 — 꼭짓점 이름과 표시가 잘 보이는 정도) */
+  const ART = ['#ff9aa2', '#ffc46b', '#ffe066', '#9be7a0', '#7ad3f5', '#a5b4fc', '#d0a2f7', '#ffa8d5', '#80e0d0', '#ffb38a'];
+  const INK = ['#e8590c', '#d6336c', '#1c7ed6', '#2f9e44', '#7048e8', '#0c8599', '#c2255c'];
+
   class Stage {
     constructor(parent, opt) {
       this.o = Object.assign({ x0: 0, y0: 0, w: 10, h: 10, grid: false, step: 1, cls: '' }, opt);
@@ -16,6 +20,12 @@
       this.layers = {};
       ['bg', 'grid', 'main', 'help', 'over', 'ui', 'top'].forEach(n => { this.layers[n] = sv('g', { class: 'layer-' + n }); this.svg.appendChild(this.layers[n]); });
       if (this.o.grid) this.drawGrid();
+      // 작품 색: 무대마다 알록달록한 색을 골라 쓴다 (fill-a, fill-b, fill-c는 서로 다른 색)
+      const [ia, ib, ic] = C.R.shuffle(ART.map((_, i) => i));
+      this.svg.style.setProperty('--art-a', ART[ia]);
+      this.svg.style.setProperty('--art-b', ART[ib]);
+      this.svg.style.setProperty('--art-c', ART[ic]);
+      this.svg.style.setProperty('--art-ink', C.R.pick(INK));
       parent.appendChild(this.svg);
       this.handlers = {};
       this._bindPointer();
@@ -305,6 +315,8 @@
       },
     };
   }
+
+  Stage.ART = ART;
 
   window.Stage = Stage;
   window.Hit = { nearestVertex, nearestSide };

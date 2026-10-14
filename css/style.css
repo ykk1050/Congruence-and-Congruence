@@ -659,3 +659,18 @@ b { font-weight: 700; }
 .word-card.lifting { opacity: .35; }
 .word-card.dragging { position: fixed; z-index: 100; pointer-events: none; cursor: grabbing; border-color: var(--navy); box-shadow: 0 8px 18px rgba(0, 0, 0, .22); transform: rotate(-3deg) scale(1.06); }
 .fill.locked .word-card, .fill.locked .blank { cursor: default; }
+.pill-lbl.p0 rect { fill: #ffe3ec; }
+/* 나만의 선대칭도형: 친구가 찍은 점, 잘못 완성한 도형 */
+.vdot.mine { fill: #f08c00; stroke: #fff; stroke-width: 2px; vector-effect: non-scaling-stroke; }
+.shape.wrong-fill { fill: rgba(240, 140, 0, .18); stroke: none; }
+.band.wrong-band { stroke: #f08c00; stroke-dasharray: 8 5; }
+
+/* 작품 색칠: 무대마다 고른 알록달록한 색 (stage.js에서 --art-a/b/c를 정함) */
+.shape { fill: var(--art-a, #ffe8c7); }
+.shape.fill-a, .shape.fold-stay { fill: var(--art-a, var(--shape-a)); }
+.shape.fill-b { fill: var(--art-b, var(--shape-b)); }
+.shape.fill-c { fill: var(--art-c, var(--shape-c)); }
+.shape.print-b { fill: var(--art-b, #e9edf7); }
+.shape.done-fill { fill: var(--art-a); fill-opacity: .85; }
+.shape.band-fill { fill: var(--art-a); fill-opacity: .55; }
+.strokes.letter line { stroke: var(--art-ink, #f76707); }
