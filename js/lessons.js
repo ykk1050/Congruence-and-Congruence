@@ -9,26 +9,84 @@
   /* =========================================================
      작은 도우미들
      ========================================================= */
-  /** 순서 맞추기 카드 */
+  /** 순서 맞추기: 방법 카드를 손가락으로 끌어 1, 2, 3 칸에 차례대로 놓는다 */
   function orderCards(box, cfg) {
     const wrap = el('div', { class: 'order' });
     wrap.appendChild(el('div', { class: 'q', html: cfg.q }));
     const slots = el('ol', { class: 'order-slots' });
     const pool = el('div', { class: 'order-pool' });
     const fb = el('div', { class: 'fb' });
-    let picked = [];
     const items = cfg.items.map((t, i) => ({ t, i }));
+    const placed = new Array(items.length).fill(null);   // 칸마다 놓인 카드
+    const slotEls = items.map((_, k) => {
+      const li = el('li', { class: 'slot drop' }, el('span', { class: 'slot-no' }, (k + 1) + ''), el('span', { class: 'slot-t' }, '여기에 끌어 놓아요'));
+      slots.appendChild(li); return li;
+    });
+    const cardEls = new Map();
+    R.shuffle(items).forEach(it => { const c = el('div', { class: 'step-card' }, it.t); cardEls.set(it, c); pool.appendChild(c); });
+    let done = false;
     function draw() {
-      clear(slots); clear(pool);
-      picked.forEach((it, k) => slots.appendChild(el('li', { class: 'slot filled', onclick: () => { picked.splice(k, 1); draw(); } }, it.t)));
-      for (let k = picked.length; k < items.length; k++) slots.appendChild(el('li', { class: 'slot' }, ''));
-      R.shuffle(items.filter(it => !picked.includes(it))).forEach(it => pool.appendChild(btn(it.t, () => { picked.push(it); draw(); if (picked.length === items.length) check(); }, 'card-btn')));
+      slotEls.forEach((li, k) => {
+        const it = placed[k];
+        li.classList.toggle('filled', !!it); li.classList.remove('right', 'wrong');
+        li.querySelector('.slot-t').textContent = it ? it.t : '여기에 끌어 놓아요';
+      });
+      cardEls.forEach((c, it) => c.classList.toggle('used', placed.includes(it)));
+      check.disabled = done || placed.some(x => !x);
     }
-    function check() {
-      if (picked.every((it, k) => it.i === k)) { Sound.good(); fb.className = 'fb good'; fb.innerHTML = cfg.good || '순서대로 잘 정리했어요!'; cfg.onDone && cfg.onDone(); }
-      else { Sound.bad(); fb.className = 'fb bad'; fb.innerHTML = '순서가 맞지 않아요. 카드를 눌러 빼고 다시 놓아 보세요.'; shake(slots); }
+    const slotAt = (x, y) => slotEls.findIndex(li => { const r = li.getBoundingClientRect(); return x >= r.left - 8 && x <= r.right + 8 && y >= r.top - 6 && y <= r.bottom + 6; });
+    function startDrag(e, it, fromSlot, srcEl) {
+      if (done) return;
+      e.preventDefault();
+      const r = srcEl.getBoundingClientRect();
+      const ghost = el('div', { class: 'step-card dragging' }, it.t);
+      ghost.style.width = Math.min(r.width, 520) + 'px';
+      document.body.appendChild(ghost);
+      const off = [Math.min(e.clientX - r.left, 40), e.clientY - r.top];
+      const move = (x, y) => { ghost.style.left = (x - off[0]) + 'px'; ghost.style.top = (y - off[1]) + 'px'; };
+      move(e.clientX, e.clientY);
+      srcEl.classList.add('lifting');
+      let over = -1, moved = false;
+      const sx = e.clientX, sy = e.clientY;
+      const onMove = (ev) => {
+        if (ev.pointerId !== e.pointerId) return;
+        if (Math.hypot(ev.clientX - sx, ev.clientY - sy) > 6) moved = true;
+        move(ev.clientX, ev.clientY);
+        const k = slotAt(ev.clientX, ev.clientY);
+        if (k !== over) { if (over >= 0) slotEls[over].classList.remove('over'); over = k; if (over >= 0) slotEls[over].classList.add('over'); }
+      };
+      const onUp = (ev) => {
+        if (ev.pointerId !== e.pointerId) return;
+        window.removeEventListener('pointermove', onMove); window.removeEventListener('pointerup', onUp); window.removeEventListener('pointercancel', onUp);
+        ghost.remove(); srcEl.classList.remove('lifting');
+        if (over >= 0) slotEls[over].classList.remove('over');
+        const k = ev.type === 'pointercancel' ? -1 : slotAt(ev.clientX, ev.clientY);
+        if (!moved) { if (fromSlot >= 0) { placed[fromSlot] = null; Sound.tap(); } else toast('카드를 손가락으로 끌어서 순서 칸에 놓아요.'); draw(); return; }
+        if (k >= 0 && k !== fromSlot) {
+          const prev = placed[k];
+          if (fromSlot >= 0) placed[fromSlot] = prev; // 칸끼리 옮기면 서로 바꾼다
+          placed[k] = it; Sound.tap();
+          slotEls[k].classList.add('pop'); setTimeout(() => slotEls[k].classList.remove('pop'), 250);
+        } else if (k < 0 && fromSlot >= 0) placed[fromSlot] = null; // 칸 밖으로 끌어내면 되돌린다
+        fb.className = 'fb'; fb.textContent = '';
+        draw();
+      };
+      window.addEventListener('pointermove', onMove); window.addEventListener('pointerup', onUp); window.addEventListener('pointercancel', onUp);
     }
-    wrap.append(slots, pool, fb);
+    cardEls.forEach((c, it) => c.addEventListener('pointerdown', (e) => { if (!c.classList.contains('used')) startDrag(e, it, -1, c); }));
+    slotEls.forEach((li, k) => li.addEventListener('pointerdown', (e) => { if (placed[k]) startDrag(e, placed[k], k, li); }));
+    const check = btn('확인하기', () => {
+      if (placed.some(x => !x)) return;
+      let ok = true;
+      placed.forEach((it, k) => { const r = it.i === k; slotEls[k].classList.toggle('right', r); slotEls[k].classList.toggle('wrong', !r); if (!r) ok = false; });
+      if (ok) { done = true; check.disabled = true; wrap.classList.add('locked'); Sound.good(); fb.className = 'fb good'; fb.innerHTML = cfg.good || '순서대로 잘 정리했어요!'; cfg.onDone && cfg.onDone(); }
+      else {
+        Sound.bad(); shake(slots); fb.className = 'fb bad';
+        const first = placed.findIndex((it, k) => it.i !== k);
+        fb.innerHTML = (cfg.why && cfg.why[first]) || '순서가 맞지 않아요. 앞에서 직접 해 본 차례를 떠올리며 빨간 칸의 카드를 옮겨 보세요.';
+      }
+    }, 'primary small');
+    wrap.append(slots, el('div', { class: 'word-hint muted' }, '✋ 카드를 끌어서 1, 2, 3 칸에 차례대로 놓아요.'), pool, check, fb);
     box.appendChild(wrap);
     draw();
   }
@@ -830,17 +888,18 @@
         });
       },
       (c) => {
-        c.say('위에서 고른 성질을 이용해 점 ㄴ과 점 ㄷ의 대응점을 찾아 표시해요. 점을 누르면 <b>대칭축에 수선</b>이 그어져요. 대응점을 모두 찾으면 점을 <b>차례대로 이어</b> 완성해요.', 'seung');
+        c.say('위에서 고른 성질을 이용해 선대칭도형을 완성해요. ① 점 ㄴ, ㄷ에서 대칭축에 <b>수선을 손으로 긋고</b>, ② 대칭축까지의 거리가 같도록 <b>대응점을 찍고</b>, ③ 점을 <b>차례대로 선으로 이어요</b>.', 'seung');
         GridComplete(c.area(), {
           mode: 'line', w: 12, h: 8, axis: [[6, 0], [6, 8]], axisLabels: ['ㅁ', 'ㅂ'],
           given: [[6, 1], [3, 2], [1, 7], [6, 5]], labels: { given: ['ㄱ', 'ㄴ', 'ㄷ', 'ㄹ'], img: ['ㅅ', 'ㅇ'] },
-          guided: true, connect: 'manual', onDone: c.done,
+          guided: true, drawHelpers: true, connect: 'manual', onDone: c.done,
         });
       },
       (c) => {
         orderCards(c.box, {
-          q: '선대칭도형을 완성하는 방법을 순서대로 눌러 정리해 보세요.',
+          q: '선대칭도형을 완성하는 방법을 순서대로 끌어 놓아 정리해 보세요.',
           items: ['각 점에서 대칭축에 수선을 긋습니다.', '각 점에서 대칭축까지의 거리가 같도록 대응점을 찾아 표시합니다.', '각 점을 차례대로 이어 선대칭도형을 완성합니다.'],
+          why: ['대응점을 찾으려면 먼저 무엇이 있어야 할까요? 대응점은 <b>수선</b> 위에 있었어요.', '수선을 그은 다음, 이어서 선을 긋기 전에 할 일은 무엇일까요?'],
           onDone: c.done,
         });
       },
@@ -875,7 +934,7 @@
   ACT.l5f = function (root) {
     UI.runSteps(root, [
       (c) => {
-        c.say('도형판에 <b>대칭축</b>을 정하고, 대칭축의 한쪽에 <b>나만의 도형</b>을 만들어요. 못을 차례로 눌러 고무줄을 걸어요. 다 만들면 친구에게 패드를 넘겨 선대칭도형을 완성하게 해요!', 'guide');
+        c.say('도형판에 <b>대칭축</b>을 정하고, 대칭축의 한쪽에 <b>나만의 도형</b>을 만들어요. 못에서 못까지 손가락으로 선을 그어 고무줄을 걸어요. 다 만들면 친구에게 패드를 넘겨 선대칭도형을 완성하게 해요!', 'guide');
         const zone = el('div', {});
         c.box.appendChild(zone);
         let gh;
@@ -1186,16 +1245,17 @@
         });
       },
       (c) => {
-        c.say('점 ㄴ과 점 ㄷ의 대응점을 찾아 표시해요. 점을 누르면 <b>대칭의 중심을 지나는 직선</b>이 그어져요. 다 찾으면 점을 차례대로 이어요.', 'dayun');
+        c.say('점대칭도형을 완성해요. ① 점 ㄴ, ㄷ에서 <b>대칭의 중심을 지나는 직선을 손으로 긋고</b>, ② 중심까지의 거리가 같도록 <b>대응점을 찍고</b>, ③ 점을 <b>차례대로 선으로 이어요</b>.', 'dayun');
         GridComplete(c.area(), {
           mode: 'point', w: 10, h: 6, center: [5, 3],
           given: [[5, 1], [2, 0], [1, 5], [5, 5]], labels: { given: ['ㄱ', 'ㄴ', 'ㄷ', 'ㄹ'], img: ['ㅁ', 'ㅂ'] },
-          guided: true, connect: 'manual', onDone: c.done,
+          guided: true, drawHelpers: true, connect: 'manual', onDone: c.done,
         });
       },
       (c) => orderCards(c.box, {
-        q: '점대칭도형을 완성하는 방법을 순서대로 눌러 정리해 보세요.',
+        q: '점대칭도형을 완성하는 방법을 순서대로 끌어 놓아 정리해 보세요.',
         items: ['각 점에서 대칭의 중심을 지나는 직선을 긋습니다.', '각 점에서 대칭의 중심까지의 거리가 같도록 대응점을 찾아 표시합니다.', '각 점을 차례대로 이어 점대칭도형을 완성합니다.'],
+        why: ['대응점을 찾으려면 먼저 무엇이 있어야 할까요? 대응점은 <b>대칭의 중심을 지나는 직선</b> 위에 있었어요.', '직선을 그은 다음, 점들을 잇기 전에 할 일은 무엇일까요?'],
         onDone: c.done,
       }),
     ]);

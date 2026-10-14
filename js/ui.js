@@ -760,6 +760,27 @@
   /* =========================================================
      모눈/도형판에서 선대칭·점대칭 도형 완성하기
      ========================================================= */
+  /** 손가락으로 긋는 선(잉크). 다 그으면 곧은 선으로 보정해 그린다. */
+  function Ink(stage) {
+    let node = null, path = [];
+    return {
+      begin(p) { path = [p]; node = stage.polyline(path, { class: 'ink' }, 'top'); },
+      add(p) { if (!node) return; if (V.dist(p, path[path.length - 1]) > 0.04) { path.push(p); stage.setPoints(node, path); } },
+      end() { const r = path; if (node) node.remove(); node = null; path = []; return r; },
+      get active() { return !!node; },
+    };
+  }
+  /** 손으로 그은 선이 a-b 곧은 선과 비슷한지(가장 멀리 벗어난 거리로 판단) */
+  function nearlyStraight(path, a, b) {
+    const L = V.dist(a, b), tol = Math.max(0.6, L * 0.22);
+    return path.every(q => V.distToSeg(q, a, b) <= tol);
+  }
+  /** 선의 방향 차이(0~90°) */
+  function dirDiff(d1, d2) {
+    const a = Math.abs(((V.angleOf(d1) - V.angleOf(d2)) % 180 + 180) % 180);
+    return Math.min(a, 180 - a);
+  }
+
   function GridComplete(box, cfg) {
     const line = cfg.mode === 'line';
     const W = cfg.w, H = cfg.h;
@@ -809,18 +830,47 @@
     box.append(prompt, ctrl, fb);
     const placed = new Array(todo.length).fill(false);
     let mistakes = 0, phase = 'place', seqIdx = 0, seqDir = 0, drawn = null, finished = false;
+    // drawHelpers: 교과서 순서대로 ① 선 긋기 → ② 대응점 찍기 → ③ 차례대로 잇기 (선은 손으로 긋는다)
+    const linesDone = new Array(todo.length).fill(false);
+    const segDone = new Set();
+    const ink = Ink(stage);
+    if (cfg.drawHelpers) phase = 'lines';
+    const stepBar = cfg.drawHelpers ? el('div', { class: 'step-bar' }) : null;
+    if (stepBar) box.insertBefore(stepBar, prompt);
+    function drawStepBar() {
+      if (!stepBar) return;
+      const names = [line ? '① 대칭축에 수선 긋기' : '① 대칭의 중심을 지나는 직선 긋기', '② 거리가 같도록 대응점 찍기', '③ 차례대로 이어 완성하기'];
+      const cur = phase === 'lines' ? 0 : phase === 'place' ? 1 : phase === 'connect' ? 2 : 3;
+      clear(stepBar);
+      names.forEach((t, k) => stepBar.appendChild(el('span', { class: 'sb' + (k === cur ? ' on' : '') + (k < cur ? ' done' : '') }, (k < cur ? '✓ ' : '') + t)));
+    }
 
     const helpName = line ? '수선' : '대칭의 중심을 지나는 직선';
     function curIdx() { return cfg.guided ? placed.indexOf(false) : -1; }
     function setPrompt() {
+      drawStepBar();
+      if (phase === 'lines') {
+        const i = linesDone.indexOf(false), nm = lg ? '점 ' + lg.given[i + 1] : '빨간 테두리 점';
+        prompt.innerHTML = line
+          ? `${nm}에서 대칭축에 <b>수선</b>을 손가락으로 그어요. <span class="muted">(대칭축과 직각으로 만나도록, 대칭축 너머까지 길게)</span>`
+          : `${nm}에서 대칭의 중심 점 <b>${cfg.centerLabel || 'ㅇ'}</b>을 지나는 <b>직선</b>을 손가락으로 그어요. <span class="muted">(중심 너머까지 길게)</span>`;
+        markCur(i);
+        return;
+      }
+      markCur(-1);
       if (phase === 'place') {
         const i = curIdx();
-        if (cfg.guided && i >= 0) prompt.innerHTML = `점 <b>${lg.given[i + 1]}</b>의 대응점을 찾아 점 <b>${lg.img[i]}</b>으로 표시해요. <span class="muted">(${cfg.helper !== false ? '점 ' + lg.given[i + 1] + '을 누르면 ' + helpName + '이 그어져요' : ''})</span>`;
+        if (cfg.guided && i >= 0) prompt.innerHTML = `점 <b>${lg.given[i + 1]}</b>의 대응점을 찾아 점 <b>${lg.img[i]}</b>으로 표시해요. <span class="muted">(${cfg.helper !== false && !cfg.drawHelpers ? '점 ' + lg.given[i + 1] + '을 누르면 ' + helpName + '이 그어져요' : (line ? '수선 위에서 대칭축까지의 거리가 같은 곳' : '직선 위에서 중심까지의 거리가 같은 곳')})</span>`;
         else prompt.innerHTML = `대응점을 찾아 ${cfg.pegs ? '도형판의 못' : '모눈의 꼭짓점'}을 눌러 표시해요. <span class="muted">남은 점: ${placed.filter(x => !x).length}개${cfg.helper !== false ? ' · 주어진 꼭짓점을 누르면 ' + helpName + '이 그어져요' : ''}</span>`;
       } else if (phase === 'connect') {
         const names = connectSeq.map(p => labelAt(p));
-        prompt.innerHTML = `점 ${names.map(n => '<b>' + n + '</b>').join(', 점 ')}을 <b>차례대로</b> 눌러 이어 보세요.`;
+        prompt.innerHTML = `점 ${names.map(n => '<b>' + n + '</b>').join(', 점 ')}을 <b>차례대로</b> 이어요. <span class="muted">점에서 점까지 손가락으로 선을 그어요. (남은 선: ${connectSeq.length - 1 - segDone.size}개)</span>`;
       }
+    }
+    let curMark = null;
+    function markCur(i) {
+      if (curMark) { curMark.remove(); curMark = null; }
+      if (i >= 0) curMark = stage.circle(todo[i], 0.32, { class: 'given-ring' }, 'top');
     }
     function labelAt(p) {
       if (!lg) return '';
@@ -896,6 +946,51 @@
     function startConnect() {
       phase = 'connect'; seqIdx = 0; seqDir = 0; drawn = null; setPrompt();
     }
+    const tolPt = () => Math.max(0.55, 30 * stage.unitPerPx());
+    /** 가장 가까운 ‘이을 수 있는 점’ */
+    function anchorNear(p, list) {
+      let best = -1, bd = tolPt();
+      list.forEach((q, k) => { const d = V.dist(p, q); if (d <= bd) { bd = d; best = k; } });
+      return best;
+    }
+    /** ① 선 긋기 판정: 그은 선을 보정해 곧은 보조선으로 바꾼다 */
+    function judgeHelper(path) {
+      const i = linesDone.indexOf(false), v = todo[i];
+      const a = path[0], b = path[path.length - 1];
+      const nm = lg ? '점 ' + lg.given[i + 1] : '그 점';
+      const fromV = V.dist(a, v) <= tolPt() ? a : V.dist(b, v) <= tolPt() ? b : null;
+      if (!fromV) return `${nm}에서 시작해서 그어요.`;
+      const far = fromV === a ? b : a, d = V.sub(far, v);
+      if (V.len(d) < 0.8) return '조금 더 길게 그어요.';
+      if (line) {
+        const f = V.foot(v, A, B), u = V.sub(f, v);
+        if (dirDiff(d, u) > 18) return `대칭축과 <b>직각</b>으로 만나도록 그어요. 지금은 ${Math.round(90 - dirDiff(d, u))}°쯤으로 비스듬해요.`;
+        if (V.dot(d, u) < 0) return '대칭축 쪽으로 그어요.';
+        if (V.len(d) < V.len(u) - 0.5) return '대칭축에 닿을 때까지(넘어가도 좋아요) 그어요.';
+        helper(v);
+      } else {
+        const u = V.sub(O, v);
+        if (V.dot(d, u) < 0) return `대칭의 중심 점 ${cfg.centerLabel || 'ㅇ'} 쪽으로 그어요.`;
+        if (path.every(q => V.dist(q, O) > Math.max(0.6, tolPt())) || dirDiff(d, u) > 15) return `선이 대칭의 중심 점 <b>${cfg.centerLabel || 'ㅇ'}</b>을 지나도록 그어요.`;
+        if (V.len(d) < V.len(u) - 0.3) return `점 ${cfg.centerLabel || 'ㅇ'}을 지나 반대쪽까지 길게 그어요.`;
+        helper(v);
+      }
+      return null;
+    }
+    /** ③ 잇기 판정 */
+    function judgeSeg(path) {
+      const pts = connectSeq;
+      const ia = anchorNear(path[0], pts), ib = anchorNear(path[path.length - 1], pts);
+      if (ia < 0 || ib < 0) return '점에서 시작해서 점에서 끝나도록 그어요.';
+      if (ia === ib) return '다른 점까지 그어요.';
+      if (Math.abs(ia - ib) !== 1) return `점 <b>${labelAt(pts[ia])}</b>과 점 <b>${labelAt(pts[ib])}</b>은 이웃한 점이 아니에요. 차례대로 이어요.`;
+      if (!nearlyStraight(path, pts[ia], pts[ib])) return '두 점을 곧게 이어요.';
+      const k = Math.min(ia, ib);
+      if (segDone.has(k)) return '이미 이은 선이에요.';
+      segDone.add(k);
+      stage.line(pts[k], pts[k + 1], { class: 'connect-line' }, 'over');
+      return null;
+    }
     /* ----- free: 점을 찍을 때마다 맞고 틀림을 알려 주지 않는다.
        점을 모두 찍어 도형이 완성되면 그때 확인하고, 틀렸으면 한 번 더 기회를 준다. ----- */
     const mine = [];           // 학생이 찍은 점 [{p, node}]
@@ -959,11 +1054,40 @@
       }, line ? 2600 : 2300);
     }
     stage.on({
+      dragStart: (p) => {
+        if (finished) return false;
+        if (phase === 'lines') { const v = todo[linesDone.indexOf(false)]; if (V.dist(p, v) > tolPt() * 1.4) return false; }
+        else if (phase === 'connect') { if (anchorNear(p, connectSeq) < 0) return false; }
+        else return false;
+        ink.begin(p); return true;
+      },
+      dragMove: (p) => ink.add(p),
+      dragCancel: () => ink.end(),
+      dragEnd: (p) => {
+        ink.add(p);
+        const path = ink.end();
+        if (path.length < 2) return;
+        if (phase === 'lines') {
+          const msg = judgeHelper(path);
+          if (msg) { mistakes++; Sound.bad(); fb.className = 'fb bad'; fb.innerHTML = msg; return; }
+          Sound.good(); fb.className = 'fb good'; fb.textContent = line ? '수선을 그었어요!' : '대칭의 중심을 지나는 직선을 그었어요!';
+          linesDone[linesDone.indexOf(false)] = true;
+          if (linesDone.every(Boolean)) { phase = 'place'; fb.textContent += ' 이제 대응점을 찍어요.'; }
+          setPrompt();
+        } else if (phase === 'connect') {
+          const msg = judgeSeg(path);
+          if (msg) { mistakes++; Sound.bad(); fb.className = 'fb bad'; fb.innerHTML = msg; return; }
+          Sound.tap(); fb.className = 'fb'; fb.textContent = '';
+          if (segDone.size >= connectSeq.length - 1) { Sound.good(); finishAll(); } else setPrompt();
+        }
+      },
       tap: (p) => {
         if (finished) return;
+        if (phase === 'lines') { fb.className = 'fb'; fb.innerHTML = '점을 누르지 말고, 손가락을 대고 <b>선을 그어요</b>.'; return; }
+        if (phase === 'connect') { fb.className = 'fb'; fb.innerHTML = '점에서 점까지 손가락으로 <b>선을 그어</b> 이어요.'; return; }
         // 주어진 꼭짓점 → 보조선
         const gi = Hit.nearestVertex(G, p, Math.max(0.35, 24 * stage.unitPerPx()));
-        if (phase === 'place' && gi >= 0 && cfg.helper !== false && !onAxis(G[gi]) && !(gi === 0 || gi === G.length - 1)) { helper(G[gi]); Sound.tap(); return; }
+        if (phase === 'place' && !cfg.drawHelpers && gi >= 0 && cfg.helper !== false && !onAxis(G[gi]) && !(gi === 0 || gi === G.length - 1)) { helper(G[gi]); Sound.tap(); return; }
         const q = stage.snap(p, 0.42);
         if (!q) return;
         if (cfg.free) {
@@ -991,7 +1115,7 @@
             fb.className = 'fb bad'; fb.innerHTML = explainWrong(q);
             cfg.onMistake && cfg.onMistake(mistakes);
           }
-        } else if (phase === 'connect') {
+        } else if (phase === 'connect-tap') {
           const target = seqDir >= 0 ? connectSeq[seqIdx] : connectSeq[connectSeq.length - 1 - seqIdx];
           if (seqIdx === 0) {
             if (V.near(q, connectSeq[0])) seqDir = 1; else if (V.near(q, connectSeq[connectSeq.length - 1])) seqDir = -1;
@@ -1050,22 +1174,48 @@
       stage.fullLine(ax().a, ax().b, { class: 'axis' }, 'help', 0.1);
       if (pts.length) stage.polyline(pts, { class: 'band' });
       pts.forEach(p => stage.circle(p, 0.16, { class: 'vdot' }, 'ui'));
-      stage.on({ tap: onTap });
+      if (pts.length) stage.circle(pts[pts.length - 1], 0.3, { class: 'given-ring' }, 'top');
+      const ink = Ink(stage);
+      const tol = () => Math.max(0.45, 26 * stage.unitPerPx());
+      let from = null;
+      stage.on({
+        // 고무줄은 못에서 못까지 손가락으로 선을 그어 건다 (끝 못에 맞춰 곧게 보정)
+        dragStart: (p) => {
+          if (closed()) return false;
+          const q = stage.snap(p, Math.max(0.5, tol()));
+          if (!q) return false;
+          if (pts.length && !V.near(q, pts[pts.length - 1])) return false;
+          from = q; ink.begin(p); return true;
+        },
+        dragMove: (p) => ink.add(p),
+        dragCancel: () => ink.end(),
+        dragEnd: (p) => {
+          ink.add(p);
+          const path = ink.end();
+          const q = stage.snap(p, Math.max(0.5, tol()));
+          if (!q || V.near(q, from)) { fb.className = 'fb'; fb.textContent = '선을 다른 못까지 그어요.'; return; }
+          if (!nearlyStraight(path, from, q)) { Sound.bad(); fb.className = 'fb bad'; fb.textContent = '못에서 못까지 곧게 그어요.'; return; }
+          if (!pts.length) { if (!tryAdd(from)) return; }
+          if (!tryAdd(q)) { if (pts.length === 1) pts.pop(); return; }
+          Sound.tap(); draw();
+        },
+        tap: () => { fb.className = 'fb'; fb.innerHTML = pts.length ? '마지막 못(빨간 테두리)에서 다음 못까지 손가락으로 <b>선을 그어요</b>.' : '대칭축 위의 못에서 시작해 손가락으로 <b>선을 그어요</b>.'; },
+      });
       fb.className = 'fb';
-      fb.innerHTML = pts.length === 0 ? '대칭축 위의 못에서 시작해요.' : (pts.length > 1 && side(pts[pts.length - 1]) === 0 ? '대칭축에 다시 닿았어요. <b>완성</b>을 눌러요.' : '대칭축 한쪽에 못을 차례로 눌러 고무줄을 걸고, 다시 대칭축 위의 못에서 끝내요.');
+      fb.innerHTML = pts.length === 0 ? '대칭축 위의 못에서 손가락으로 선을 그어 시작해요.' : (closed() ? '대칭축에 다시 닿았어요. <b>완성</b>을 눌러요.' : '빨간 테두리 못에서 다음 못까지 선을 그어 고무줄을 걸고, 다시 대칭축 위의 못에서 끝내요.');
     }
-    function onTap(p) {
-      const q = stage.snap(p, 0.45);
-      if (!q) return;
-      if (pts.length && side(pts[pts.length - 1]) === 0 && pts.length > 1) { toast('이미 대칭축에 닿았어요. 완성을 누르거나 되돌려요.'); return; }
-      if (pts.length === 0) { if (side(q) !== 0) { Sound.bad(); fb.className = 'fb bad'; fb.textContent = '대칭축 위의 못에서 시작해야 해요.'; return; } }
+    const closed = () => pts.length > 1 && side(pts[pts.length - 1]) === 0;
+    function tryAdd(q) {
+      const bad = (t) => { Sound.bad(); fb.className = 'fb bad'; fb.textContent = t; return false; };
+      if (pts.length === 0) { if (side(q) !== 0) return bad('대칭축 위의 못에서 시작해야 해요.'); }
       else {
-        if (pts.some(x => V.near(x, q))) return;
+        if (pts.some(x => V.near(x, q))) return bad('이미 고무줄을 건 못이에요.');
         const s = pts.slice(1).map(side).find(x => x !== 0);
-        if (side(q) !== 0 && s && side(q) !== s) { Sound.bad(); fb.className = 'fb bad'; fb.textContent = '대칭축의 한쪽에만 도형을 만들어요.'; return; }
-        if (side(q) === 0 && pts.length < 2) { Sound.bad(); fb.className = 'fb bad'; fb.textContent = '대칭축에서 벗어난 못을 먼저 눌러요.'; return; }
+        if (side(q) !== 0 && s && side(q) !== s) return bad('대칭축의 한쪽에만 도형을 만들어요.');
+        if (side(q) === 0 && pts.length < 2) return bad('대칭축에서 벗어난 못으로 먼저 그어요.');
       }
-      pts.push(q); Sound.tap(); draw();
+      pts.push(q);
+      return true;
     }
     draw();
     return {
