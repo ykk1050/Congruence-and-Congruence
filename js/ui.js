@@ -861,10 +861,12 @@
       if (phase === 'place') {
         const i = curIdx();
         if (cfg.guided && i >= 0) prompt.innerHTML = `점 <b>${lg.given[i + 1]}</b>의 대응점을 찾아 점 <b>${lg.img[i]}</b>으로 표시해요. <span class="muted">(${cfg.helper !== false && !cfg.drawHelpers ? '점 ' + lg.given[i + 1] + '을 누르면 ' + helpName + '이 그어져요' : (line ? '수선 위에서 대칭축까지의 거리가 같은 곳' : '직선 위에서 중심까지의 거리가 같은 곳')})</span>`;
-        else prompt.innerHTML = `대응점을 찾아 ${cfg.pegs ? '도형판의 못' : '모눈의 꼭짓점'}을 눌러 표시해요. <span class="muted">남은 점: ${placed.filter(x => !x).length}개${cfg.helper !== false ? ' · 주어진 꼭짓점을 누르면 ' + helpName + '이 그어져요' : ''}</span>`;
+        else prompt.innerHTML = `대응점을 찾아 ${cfg.pegs ? '도형판의 못' : '모눈의 꼭짓점'}을 눌러 표시해요. <span class="muted">남은 점: ${placed.filter(x => !x).length}개${cfg.helper !== false && !cfg.drawHelpers ? ' · 주어진 꼭짓점을 누르면 ' + helpName + '이 그어져요' : ''}</span>`;
       } else if (phase === 'connect') {
-        const names = connectSeq.map(p => labelAt(p));
-        prompt.innerHTML = `점 ${names.map(n => '<b>' + n + '</b>').join(', 점 ')}을 <b>차례대로</b> 이어요. <span class="muted">점에서 점까지 손가락으로 선을 그어요. (남은 선: ${connectSeq.length - 1 - segDone.size}개)</span>`;
+        const names = connectSeq.map(p => labelAt(p)), left = connectSeq.length - 1 - segDone.size;
+        prompt.innerHTML = lg
+          ? `점 ${names.map(n => '<b>' + n + '</b>').join(', 점 ')}을 <b>차례대로</b> 이어요. <span class="muted">점에서 점까지 손가락으로 선을 그어요. (남은 선: ${left}개)</span>`
+          : `주어진 선의 끝점에서 시작해, 찍은 대응점들을 <b>차례대로</b> 선으로 이어요. <span class="muted">점에서 점까지 손가락으로 그어요. (남은 선: ${left}개)</span>`;
       }
     }
     let curMark = null;
@@ -983,7 +985,7 @@
       const ia = anchorNear(path[0], pts), ib = anchorNear(path[path.length - 1], pts);
       if (ia < 0 || ib < 0) return '점에서 시작해서 점에서 끝나도록 그어요.';
       if (ia === ib) return '다른 점까지 그어요.';
-      if (Math.abs(ia - ib) !== 1) return `점 <b>${labelAt(pts[ia])}</b>과 점 <b>${labelAt(pts[ib])}</b>은 이웃한 점이 아니에요. 차례대로 이어요.`;
+      if (Math.abs(ia - ib) !== 1) return lg ? `점 <b>${labelAt(pts[ia])}</b>과 점 <b>${labelAt(pts[ib])}</b>은 이웃한 점이 아니에요. 차례대로 이어요.` : '이웃한 점끼리 이어요. 주어진 선과 마주 보는 모양이 되도록 차례대로 이어요.';
       if (!nearlyStraight(path, pts[ia], pts[ib])) return '두 점을 곧게 이어요.';
       const k = Math.min(ia, ib);
       if (segDone.has(k)) return '이미 이은 선이에요.';

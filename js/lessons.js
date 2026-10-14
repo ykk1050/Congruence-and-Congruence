@@ -745,7 +745,7 @@
         let tags = [];
         termCard(c, {
           wide: true,
-          parts: ['대칭축을 따라 접었을 때 겹치는 점을 ', { ans: '대응점' }, ', 겹치는 변을 ', { ans: '대응변' }, ', 겹치는 각을 ', { ans: '대응각' }, '이라고 합니다.'],
+          parts: [{ ans: '대칭축' }, '을 따라 접었을 때 겹치는 점을 ', { ans: '대응점' }, ', 겹치는 변을 ', { ans: '대응변' }, ', 겹치는 각을 ', { ans: '대응각' }, '이라고 합니다.'],
           figure: (box) => {
             // 교과서 그림: 오각형 선대칭도형, 대칭축, 겹치는 점·변·각을 잇는 화살표
             const T = [[4, 0.8], [7.6, 3.2], [6.4, 6.6], [1.6, 6.6], [0.4, 3.2]];
@@ -756,11 +756,10 @@
             termLink(st, V.mid(T[4], T[0]), V.mid(T[0], T[1]), [4, -1.6]);              // 대응변
             termLink(st, V.add(T[4], [0.95, 0.05]), V.add(T[1], [-0.95, 0.05]));       // 대응각
             termLink(st, V.add(T[3], [-0.1, 0.25]), V.add(T[2], [0.1, 0.25]), [4, 9.4]); // 대응점
-            pill(st, [5.6, 5.3], '대칭축', 'p0');
-            tags = [pill(st, [4, 8.0], '?', 'p1'), pill(st, [4, -0.75], '?', 'p2'), pill(st, [4, 3.25], '?', 'p3')];
+            tags = [pill(st, [5.3, 5.3], '?', 'p0'), pill(st, [4, 8.0], '?', 'p1'), pill(st, [4, -0.75], '?', 'p2'), pill(st, [4, 3.25], '?', 'p3')];
           },
-          onReveal: () => ['대응점', '대응변', '대응각'].forEach((t, i) => tags[i].set(t)),
-          good: '정답! 대칭축을 따라 접었을 때 겹치는 점은 <b>대응점</b>, 변은 <b>대응변</b>, 각은 <b>대응각</b>이에요.',
+          onReveal: () => ['대칭축', '대응점', '대응변', '대응각'].forEach((t, i) => tags[i].set(t)),
+          good: '정답! <b>대칭축</b>을 따라 접었을 때 겹치는 점은 <b>대응점</b>, 변은 <b>대응변</b>, 각은 <b>대응각</b>이에요.',
           after: () => conceptCard(c.box, '선대칭도형의 대응점, 대응변, 대응각', '대칭축을 따라 접었을 때 겹치는 점을 <b>대응점</b>, 겹치는 변을 <b>대응변</b>, 겹치는 각을 <b>대응각</b>이라고 합니다.'),
         });
       },
@@ -909,12 +908,12 @@
   ACT.l5e = function (root) {
     UI.runSteps(root, [
       (c) => {
-        c.say('선대칭도형을 완성해 보세요. 다 완성하면 <b>대칭축을 따라 접어 확인하기</b>를 눌러 보세요.', 'guide');
-        GridComplete(c.area(), { mode: 'line', w: 12, h: 8, axis: [[6, 0], [6, 8]], given: [[6, 0], [3, 2], [5, 3], [1, 5], [6, 7]], onDone: c.done });
+        c.say('앞에서 정리한 순서대로 선대칭도형을 완성해 보세요. ① 각 점에서 대칭축에 <b>수선을 긋고</b>, ② 거리가 같도록 <b>대응점을 찍고</b>, ③ 점을 <b>차례대로 이어요</b>. 다 완성하면 <b>대칭축을 따라 접어 확인하기</b>를 눌러 보세요.', 'guide');
+        GridComplete(c.area(), { mode: 'line', w: 12, h: 8, axis: [[6, 0], [6, 8]], given: [[6, 0], [3, 2], [5, 3], [1, 5], [6, 7]], drawHelpers: true, connect: 'manual', onDone: c.done });
       },
       (c) => {
-        c.say('이번에는 대칭축이 <b>비스듬해요</b>. 모눈의 선과 방향이 다를 때에는 먼저 각 점에서 대칭축에 <b>수선</b>을 그어야 대응점을 쉽게 찾을 수 있어요. 주어진 점을 눌러 보세요.', 'guide');
-        GridComplete(c.area(), { mode: 'line', w: 10, h: 8, axis: [[2, 0], [10, 8]], given: [[3, 1], [2, 3], [6, 7], [8, 6]], onDone: c.done });
+        c.say('이번에는 대칭축이 <b>비스듬해요</b>. 모눈의 선과 방향이 다를 때에는 먼저 각 점에서 대칭축에 <b>수선</b>을 그어야 대응점을 쉽게 찾을 수 있어요. 대칭축과 직각이 되도록 손으로 그어 보세요.', 'guide');
+        GridComplete(c.area(), { mode: 'line', w: 10, h: 8, axis: [[2, 0], [10, 8]], given: [[3, 1], [2, 3], [6, 7], [8, 6]], drawHelpers: true, connect: 'manual', onDone: c.done });
       },
       (c) => {
         c.say('친구는 어떤 방법으로 완성했는지 이야기 나누어 보세요. 아래 버튼으로 새로운 문제도 더 풀 수 있어요.', 'dayun');
@@ -923,7 +922,7 @@
         const more = () => {
           clear(box);
           const g = Shapes.lineHalf(R.pick(['v', 'h', 'd']));
-          GridComplete(box, { mode: 'line', w: 10, h: 10, axis: g.axis, given: g.given, onDone: () => { c.done(); } });
+          GridComplete(box, { mode: 'line', w: 10, h: 10, axis: g.axis, given: g.given, drawHelpers: true, connect: 'manual', onDone: () => { c.done(); } });
         };
         c.controls().appendChild(btn('🎲 새 문제', more, 'secondary'));
         more();
@@ -1266,17 +1265,17 @@
   ACT.l8e = function (root) {
     UI.runSteps(root, [
       (c) => {
-        c.say('점대칭도형을 완성해 보세요. 완성하면 <b>180° 돌려서 확인하기</b>를 눌러 보세요.', 'guide');
-        GridComplete(c.area(), { mode: 'point', w: 10, h: 8, center: [5, 4], given: [[3, 1], [1, 3], [2, 6], [7, 7]], onDone: c.done });
+        c.say('앞에서 정리한 순서대로 점대칭도형을 완성해 보세요. ① 각 점에서 <b>대칭의 중심을 지나는 직선을 긋고</b>, ② 거리가 같도록 <b>대응점을 찍고</b>, ③ 점을 <b>차례대로 이어요</b>. 완성하면 <b>180° 돌려서 확인하기</b>를 눌러 보세요.', 'guide');
+        GridComplete(c.area(), { mode: 'point', w: 10, h: 8, center: [5, 4], given: [[3, 1], [1, 3], [2, 6], [7, 7]], drawHelpers: true, connect: 'manual', onDone: c.done });
       },
       (c) => {
-        GridComplete(c.area(), { mode: 'point', w: 10, h: 8, center: [5, 4], given: [[5, 1], [2, 2], [3, 5], [5, 7]], onDone: c.done });
+        GridComplete(c.area(), { mode: 'point', w: 10, h: 8, center: [5, 4], given: [[5, 1], [2, 2], [3, 5], [5, 7]], drawHelpers: true, connect: 'manual', onDone: c.done });
       },
       (c) => {
         c.say('새로운 문제를 더 풀어 보고, 친구에게 완성한 방법을 설명해 보세요.', 'seung');
         const box = el('div', { class: 'work' });
         c.box.appendChild(box);
-        const more = () => { clear(box); const g = Shapes.pointHalf(); GridComplete(box, { mode: 'point', w: 10, h: 10, center: g.center, given: g.given, onDone: () => c.done() }); };
+        const more = () => { clear(box); const g = Shapes.pointHalf(); GridComplete(box, { mode: 'point', w: 10, h: 10, center: g.center, given: g.given, drawHelpers: true, connect: 'manual', onDone: () => c.done() }); };
         c.controls().appendChild(btn('🎲 새 문제', more, 'secondary'));
         more();
       },
