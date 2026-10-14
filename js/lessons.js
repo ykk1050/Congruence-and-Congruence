@@ -255,10 +255,49 @@
           onDone: () => {
             const g = Store.get('l2a:guess', null);
             if (g) c.say(g === '라' ? '예상한 대로였어요! 👏' : `처음에는 도형 ${g}라고 예상했지만, 직접 포개어 보니 도형 라였어요. 예상과 확인이 다를 수 있어요!`, 'seung');
-            conceptCard(c.box, '합동', '모양과 크기가 같아서 포개었을 때 <b>완전히 겹치는</b> 두 도형을 서로 <b>합동</b>이라고 합니다.<br>돌리거나 <b>뒤집어서</b> 포개었을 때 완전히 겹쳐도 서로 합동이에요.');
             c.done();
           },
         });
+      },
+      (c) => {
+        c.say('도형 가와 도형 라처럼 포개었을 때 완전히 겹치는 두 도형을 무엇이라고 하는지 알아봐요. 빈칸에 알맞은 말을 <b>직접 써</b> 보세요.', 'guide');
+        // 교과서 개념 상자: 문장 + 서로 합동인 두 삼각형
+        const card = el('div', { class: 'concept term-card' });
+        const input = el('input', { type: 'text', class: 'term-in', maxlength: '6', autocomplete: 'off', 'aria-label': '빈칸에 들어갈 말' });
+        const text = el('div', { class: 'term-text' }, '모양과 크기가 같아서 포개었을 때 완전히 겹치는 두 도형을 서로 ', input, '이라고 합니다.');
+        const fig = el('div', { class: 'term-fig' });
+        card.append(text, fig);
+        c.box.appendChild(card);
+        const st = new Stage(fig, { x0: -0.4, y0: -0.6, w: 11, h: 4.2, cls: 'term-stage' });
+        st.poly(ga, { class: 'shape term-tri' });
+        st.poly(ga.map(p => [4 - p[0] + 6, p[1]]), { class: 'shape term-tri' });
+        const fb = el('div', { class: 'fb' });
+        const ctl = c.controls();
+        let done = false;
+        const finish = () => {
+          done = true; input.disabled = true; check.disabled = true;
+          conceptCard(c.box, '합동', '모양과 크기가 같아서 포개었을 때 <b>완전히 겹치는</b> 두 도형을 서로 <b>합동</b>이라고 합니다.<br>돌리거나 <b>뒤집어서</b> 포개었을 때 완전히 겹쳐도 서로 합동이에요.');
+          c.done();
+        };
+        const go = () => {
+          if (done) return;
+          const v = input.value.replace(/\s/g, '');
+          if (!v) { fb.className = 'fb'; fb.textContent = '빈칸에 알맞은 말을 써 보세요.'; input.focus(); return; }
+          if (v === '합동') {
+            Sound.good(); input.classList.add('right');
+            fb.className = 'fb good'; fb.innerHTML = '정답! 포개었을 때 완전히 겹치는 두 도형을 서로 <b>합동</b>이라고 해요.';
+          } else {
+            // 틀리게 쓰면 정답을 알려 주고 바르게 고쳐 써 준다
+            Sound.bad(); shake(input);
+            fb.className = 'fb bad'; fb.innerHTML = `‘${v}’이(가) 아니에요. 정답은 <b>합동</b>이에요. 빈칸을 <b>합동</b>으로 고쳐 썼어요. 소리 내어 읽어 보세요.`;
+            input.value = '합동'; input.classList.add('fixed');
+          }
+          finish();
+        };
+        input.addEventListener('keydown', e => { if (e.key === 'Enter' && !e.isComposing) go(); });
+        const check = btn('확인', go, 'primary');
+        ctl.appendChild(check);
+        c.box.appendChild(fb);
       },
     ]);
   };

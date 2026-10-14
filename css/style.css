@@ -622,3 +622,14 @@ b { font-weight: 700; }
 .art-frame { fill: #c99a2e; stroke: #8a6a1e; stroke-width: 1.5px; vector-effect: non-scaling-stroke; }
 .art-canvas { fill: #fffdf6; }
 .stage.letter-stage { background: #efe2c9; max-height: 42vh; }
+
+/* 개념 상자에 용어 직접 쓰기 (합동) */
+.term-card { display: flex; align-items: center; gap: 16px; flex-wrap: wrap; background: #fff; border: 3px solid #ffc933; border-radius: 22px; padding: 16px 20px; }
+.term-text { flex: 1 1 320px; font-size: 1.2rem; line-height: 2.2; }
+.term-in { width: 4.2em; min-height: 46px; margin: 0 4px; font: inherit; font-weight: 700; color: #e03131; text-align: center; border: 0; border-bottom: 3px solid var(--navy); background: #f2f5ff; border-radius: 8px 8px 0 0; }
+.term-in:focus { outline: none; background: #fff8e1; border-bottom-color: #e0a800; }
+.term-in.right { background: var(--good-bg); border-bottom-color: var(--good); }
+.term-in.fixed { background: #fff0f0; border-bottom-color: #e03131; }
+.term-fig { flex: 0 1 260px; min-width: 200px; }
+.stage.term-stage { background: transparent; }
+.shape.term-tri { fill: none; stroke: #212529; }
