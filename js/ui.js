@@ -184,50 +184,101 @@
   };
   function wordWhy(val, ans) { return WORD_WHY[val + '>' + ans] || WORD_WHY[val] || `‘${val}’은(는) 이 빈칸에 알맞지 않아요.`; }
 
+  /** 빈칸 채우기: 낱말 카드를 손가락(마우스)으로 끌어 빈칸에 놓는다.
+      빈칸에 놓인 낱말은 다른 빈칸으로 옮기거나 밖으로 끌어내 되돌릴 수 있다(누르면 빠짐). */
   function fillBlank(box, cfg) {
     const wrap = el('div', { class: 'fill' });
     const sentence = el('div', { class: 'sentence' });
     const blanks = [];
-    let active = null;
     cfg.parts.forEach(p => {
       if (typeof p === 'string') sentence.appendChild(el('span', { html: p }));
       else {
-        const b = el('button', { class: 'blank', type: 'button' }, '　');
+        const b = el('span', { class: 'blank drop', role: 'button', 'aria-label': '빈칸' }, '　');
         b.dataset.ans = p.ans; b.dataset.val = '';
-        b.addEventListener('click', () => {
-          if (b.dataset.val) { b.dataset.val = ''; b.textContent = '　'; b.classList.remove('filled', 'right', 'wrong'); }
-          blanks.forEach(x => x.classList.remove('active')); b.classList.add('active'); active = b;
-        });
         blanks.push(b); sentence.appendChild(b);
       }
     });
-    const chips = el('div', { class: 'chips' });
-    R.shuffle(cfg.chips).forEach(c => chips.appendChild(btn(c, () => {
-      const target = (active && !active.dataset.val) ? active : blanks.find(b => !b.dataset.val);
-      if (!target) return;
-      target.dataset.val = c; target.textContent = c; target.classList.add('filled'); target.classList.remove('active', 'wrong');
-      active = blanks.find(b => !b.dataset.val) || null;
-      if (active) active.classList.add('active');
-    }, 'chip')));
+    const pool = el('div', { class: 'chips word-pool' });
+    const cards = {};
+    R.shuffle(cfg.chips).forEach(w => { const c = el('span', { class: 'word-card' }, w); c.dataset.w = w; cards[w] = c; pool.appendChild(c); });
     const fb = el('div', { class: 'fb' });
+    let checked = false;
+
+    const setBlank = (b, w) => {
+      b.dataset.val = w || '';
+      b.textContent = w || '　';
+      b.classList.toggle('filled', !!w);
+      b.classList.remove('right', 'wrong');
+    };
+    const showCard = (w, on) => { if (w && cards[w]) cards[w].classList.toggle('used', !on); };
+    const blankAt = (x, y) => blanks.find(b => { const r = b.getBoundingClientRect(), m = 10; return x >= r.left - m && x <= r.right + m && y >= r.top - m && y <= r.bottom + m; }) || null;
+
+    /** 끌기: word 를 from(낱말 카드 또는 빈칸)에서 집어 든다 */
+    function startDrag(e, word, fromBlank, srcEl) {
+      if (check.disabled) return;
+      e.preventDefault();
+      const r = srcEl.getBoundingClientRect();
+      const ghost = el('div', { class: 'word-card dragging' }, word);
+      document.body.appendChild(ghost);
+      const off = [e.clientX - r.left, e.clientY - r.top];
+      const move = (x, y) => { ghost.style.left = (x - off[0]) + 'px'; ghost.style.top = (y - off[1]) + 'px'; };
+      move(e.clientX, e.clientY);
+      srcEl.classList.add('lifting');
+      let over = null, moved = false;
+      const sx = e.clientX, sy = e.clientY;
+      const onMove = (ev) => {
+        if (ev.pointerId !== e.pointerId) return;
+        if (Math.hypot(ev.clientX - sx, ev.clientY - sy) > 6) moved = true;
+        move(ev.clientX, ev.clientY);
+        const b = blankAt(ev.clientX, ev.clientY);
+        if (b !== over) { if (over) over.classList.remove('over'); over = b; if (over) over.classList.add('over'); }
+      };
+      const onUp = (ev) => {
+        if (ev.pointerId !== e.pointerId) return;
+        window.removeEventListener('pointermove', onMove); window.removeEventListener('pointerup', onUp); window.removeEventListener('pointercancel', onUp);
+        ghost.remove(); srcEl.classList.remove('lifting');
+        if (over) over.classList.remove('over');
+        const target = ev.type === 'pointercancel' ? null : blankAt(ev.clientX, ev.clientY);
+        if (!moved) {
+          // 누르기만 했을 때: 빈칸의 낱말은 빼고, 카드는 끌어 보라고 알려 준다
+          if (fromBlank) { showCard(fromBlank.dataset.val, true); setBlank(fromBlank, ''); Sound.tap(); }
+          else { Sound.tap(); toast('낱말 카드를 손가락으로 끌어서 빈칸에 놓아요.'); }
+          return;
+        }
+        if (target && target !== fromBlank) {
+          const prev = target.dataset.val;
+          if (fromBlank) setBlank(fromBlank, prev); // 빈칸끼리 옮기면 서로 바꾼다
+          else showCard(prev, true);
+          setBlank(target, word); showCard(word, false);
+          Sound.tap();
+          target.classList.add('pop'); setTimeout(() => target.classList.remove('pop'), 250);
+        } else if (!target && fromBlank) {
+          setBlank(fromBlank, ''); showCard(word, true); // 빈칸 밖으로 끌어내면 되돌린다
+        }
+        if (checked) { fb.className = 'fb'; fb.textContent = ''; }
+      };
+      window.addEventListener('pointermove', onMove); window.addEventListener('pointerup', onUp); window.addEventListener('pointercancel', onUp);
+    }
+    Object.values(cards).forEach(c => c.addEventListener('pointerdown', (e) => { if (!c.classList.contains('used')) startDrag(e, c.dataset.w, null, c); }));
+    blanks.forEach(b => b.addEventListener('pointerdown', (e) => { if (b.dataset.val) startDrag(e, b.dataset.val, b, b); }));
+
     let tries = 0;
     const check = btn('확인하기', () => {
-      if (blanks.some(b => !b.dataset.val)) { fb.className = 'fb bad'; fb.textContent = '빈칸을 모두 채워 보세요.'; return; }
+      if (blanks.some(b => !b.dataset.val)) { fb.className = 'fb bad'; fb.textContent = '낱말 카드를 끌어 빈칸을 모두 채워 보세요.'; return; }
       let ok = true;
       blanks.forEach(b => { const r = b.dataset.val === b.dataset.ans; b.classList.toggle('right', r); b.classList.toggle('wrong', !r); if (!r) ok = false; });
-      tries++;
+      tries++; checked = true;
       if (ok) {
         Sound.good(); fb.className = 'fb good'; fb.innerHTML = cfg.good || '정리 완료! 아주 잘했어요.';
-        check.disabled = true; cfg.onDone && cfg.onDone(tries === 1);
+        check.disabled = true; wrap.classList.add('locked'); cfg.onDone && cfg.onDone(tries === 1);
       } else {
         Sound.bad(); fb.className = 'fb bad';
         const msgs = [];
         blanks.forEach(b => { if (b.dataset.val !== b.dataset.ans) { const m = wordWhy(b.dataset.val, b.dataset.ans); if (!msgs.includes(m)) msgs.push(m); } });
-        fb.innerHTML = msgs.join('<br>') + '<br><span class="muted">빨간 빈칸을 눌러 지우고 다시 골라 보세요.</span>';
+        fb.innerHTML = msgs.join('<br>') + '<br><span class="muted">빨간 빈칸의 낱말을 밖으로 끌어내고, 알맞은 낱말 카드를 끌어다 놓아 보세요.</span>';
       }
     }, 'primary small');
-    if (blanks[0]) { blanks[0].classList.add('active'); active = blanks[0]; }
-    wrap.append(sentence, chips, check, fb);
+    wrap.append(sentence, el('div', { class: 'word-hint muted' }, '✋ 낱말 카드를 끌어서 빈칸에 놓아요.'), pool, check, fb);
     box.appendChild(wrap);
     return wrap;
   }
