@@ -769,20 +769,88 @@
   /* =========================================================
      5~6차시 — 선대칭도형의 성질
      ========================================================= */
+  /* 대칭축을 따라 접어서, 대응변·대응각이 꼭 맞게 겹치는 것을 보고 길이·크기가 같음을 알게 한다
+     (자나 각도기로 재지 않아도 알 수 있다는 것을 깨닫게 하는 것이 목적) */
   ACT.l5a = function (root) {
     const P = [[0, -2.2], [-1.5, -0.2], [-1.5, 1.3], [0, 2.1], [1.5, 1.3], [1.5, -0.2]];
-    const figs = [{ pts: P, labels: ['ㄱ', 'ㄴ', 'ㄷ', 'ㄹ', 'ㅁ', 'ㅂ'] }];
-    const map = [[0, 0], [3, 3], [1, 5], [2, 4]];
-    const base = { view: { x0: -4.5, y0: -3.4, w: 9, h: 6.6 }, figs, map, axis: { a: [0, -3], b: [0, 4], labels: ['ㅅ', 'ㅇ'] }, measure: true, scale: 2 };
+    const L = ['ㄱ', 'ㄴ', 'ㄷ', 'ㄹ', 'ㅁ', 'ㅂ'];
+    const A = [0, -3], B = [0, 4];
+    const flat = (p, t) => [p[0] * (1 - 2 * t), p[1]];   // 대칭축(x=0)을 따라 접는 중인 점
+    /** 선대칭도형 + 대칭축 + 비교할 두 곳(왼쪽: 주황, 오른쪽: 파랑)을 그리고, 접기 버튼을 단다 */
+    function foldBoard(c, cfg) {
+      const st = new Stage(c.area(), { x0: -4.5, y0: -3.4, w: 9, h: 6.6 });
+      st.poly(P, { class: 'shape fill-a' });
+      st.fullLine(A, B, { class: 'axis' }, 'help', 0.2);
+      st.text([0.35, -3.05], 'ㅅ', { class: 'vlabel axis-lbl' }); st.text([0.35, 3.05], 'ㅇ', { class: 'vlabel axis-lbl' });
+      st.vertexLabels(P, L, { off: 0.45 });
+      const left = cfg.draw(st, P, 'cmp-left', 'top');
+      let right = cfg.drawRight(st, P, 'cmp-right', 'top');
+      let folded = 0;
+      const ctl = c.controls();
+      const go = btn('📖 대칭축을 따라 접기', () => {
+        if (go.disabled) return;
+        go.disabled = true;
+        UI.foldAnim(st, P, A, B, { moveSide: P[5], good: true, hold: 2200, labels: P.map((q, i) => ({ p: q, text: L[i] })), done: () => {
+          right.forEach(n => n.remove()); right = cfg.drawRight(st, P, 'cmp-right', 'top');
+          go.disabled = false; go.textContent = '📖 다시 접어 보기';
+          if (++folded === 1) cfg.onFolded();
+        } });
+        // 오른쪽(파랑) 표시도 종이와 함께 접혀 넘어간다
+        animate(1000, t => { right.forEach(n => n.remove()); right = cfg.drawRight(st, P.map(q => flat(q, t)), 'cmp-right', 'top'); }, () => {
+          setTimeout(() => toast(cfg.overlapMsg, 'good', 2600), 100);
+        });
+      }, 'primary');
+      ctl.appendChild(go);
+      void left;
+      return st;
+    }
+    const sideLine = (i, j) => (st, Q, cls, layer) => [st.line(Q[i], Q[j], { class: 'cmp-side ' + cls }, layer)];
     UI.runSteps(root, [
       (c) => {
-        c.say('선대칭도형 작품에서 대응변과 대응각을 입력하면 <b>디지털 자와 각도기</b>가 길이와 크기를 재어 줘요. 재어 본 값을 비교해 보세요.', 'guide');
-        Correspond(c.area(), Object.assign({}, base, {
-          prompts: [[0, 1], [1, 2], [2, 3]].map(g => ({ type: 'side', given: g })).concat([[0, 1, 2], [1, 2, 3]].map(g => ({ type: 'angle', given: g }))),
-          onDone: c.done,
-        }));
+        c.say('직선 ㅅㅇ을 대칭축으로 하는 선대칭도형 작품이에요. <b>변 ㄴㄷ</b>(주황)과 <b>변 ㅂㅁ</b>(파랑)은 대응변이에요. 자로 재지 않고도 두 변의 길이를 비교할 수 있을까요? <b>대칭축을 따라 접어</b> 보세요.', 'guide');
+        foldBoard(c, {
+          draw: sideLine(1, 2), drawRight: sideLine(5, 4),
+          overlapMsg: '변 ㅂㅁ이 변 ㄴㄷ에 꼭 맞게 겹쳤어요!',
+          onFolded: () => choice(c.box, {
+            q: '접었더니 변 ㅂㅁ이 변 ㄴㄷ에 <b>꼭 맞게 겹쳤어요</b>. 두 변의 길이는 어떨까요?',
+            options: [
+              { t: '두 변의 길이가 같아요.', ok: true },
+              { t: '변 ㄴㄷ이 더 길어요.', why: '한쪽이 더 길면 접었을 때 끝이 삐져나와요. 두 변은 삐져나온 곳 없이 꼭 맞게 겹쳤어요.' },
+              { t: '자로 재어 보아야만 알 수 있어요.', why: '재어 보지 않아도 알 수 있어요. 접었을 때 꼭 맞게 겹친다는 것은 두 변의 길이가 어떻다는 뜻일까요?' },
+            ],
+            good: '맞아요! 접었을 때 꼭 맞게 겹치니까 재어 보지 않아도 <b>대응변의 길이가 같다</b>는 것을 알 수 있어요.',
+            onDone: () => choice(c.box, {
+              q: '변 ㄱㄴ과 변 ㄱㅂ, 변 ㄷㄹ과 변 ㅁㄹ처럼 <b>다른 대응변</b>들은 어떨까요?',
+              options: [
+                { t: '접으면 모두 꼭 맞게 겹치니까 길이가 각각 같아요.', ok: true },
+                { t: '변 ㄴㄷ과 변 ㅂㅁ만 길이가 같아요.', why: '대칭축을 따라 접으면 도형 전체가 완전히 겹쳐요. 다른 대응변들도 꼭 맞게 겹치는지 다시 접어 보세요.' },
+              ],
+              good: '맞아요! 선대칭도형은 대칭축을 따라 접으면 완전히 겹치니까 대응변끼리 모두 꼭 맞게 겹쳐요.',
+              onDone: c.done,
+            }),
+          }),
+        });
       },
       (c) => {
+        c.say('이번에는 <b>각 ㄱㄴㄷ</b>(주황)과 <b>각 ㄱㅂㅁ</b>(파랑)이에요. 두 각은 대응각이에요. 각도기 없이 크기를 비교할 수 있을까요? 대칭축을 따라 접어 보세요.', 'seung');
+        const wedge = (i) => (st, Q, cls, layer) => [st.angleWedge(Q, i, 0.55, { class: 'cmp-wedge ' + cls }, layer)];
+        foldBoard(c, {
+          draw: wedge(1), drawRight: wedge(5),
+          overlapMsg: '각 ㄱㅂㅁ이 각 ㄱㄴㄷ에 꼭 맞게 겹쳤어요!',
+          onFolded: () => choice(c.box, {
+            q: '접었더니 각 ㄱㅂㅁ이 각 ㄱㄴㄷ에 <b>꼭 맞게 겹쳤어요</b>. 두 각의 크기는 어떨까요?',
+            options: [
+              { t: '두 각의 크기가 같아요.', ok: true },
+              { t: '각 ㄱㅂㅁ이 더 커요.', why: '한 각이 더 크면 접었을 때 각의 변이 서로 어긋나요. 두 각은 꼭 맞게 겹쳤어요.' },
+              { t: '각도기로 재어 보아야만 알 수 있어요.', why: '재어 보지 않아도 알 수 있어요. 접었을 때 꼭 맞게 겹친다는 것은 두 각의 크기가 어떻다는 뜻일까요?' },
+            ],
+            good: '맞아요! 접었을 때 꼭 맞게 겹치니까 재어 보지 않아도 <b>대응각의 크기가 같다</b>는 것을 알 수 있어요. 각 ㄴㄷㄹ과 각 ㅂㅁㄹ도 마찬가지예요.',
+            onDone: c.done,
+          }),
+        });
+      },
+      (c) => {
+        c.say('접어 보며 알게 된 것을 정리해 봐요. 대칭축을 따라 접으면 완전히 겹치니까…', 'guide');
         fillBlank(c.box, { parts: ['선대칭도형은 ', { ans: '대응변' }, '의 길이와 ', { ans: '대응각' }, '의 크기가 각각 같습니다.'], chips: ['대응변', '대응각', '대칭축', '대응점'], onDone: c.done });
       },
     ]);
@@ -1341,7 +1409,7 @@
       id: 'l5', no: '5~6차시', title: '선대칭도형의 성질을 알아볼까요', pages: '수학 66~69쪽 · 수학익힘 46~47쪽', emoji: '🎨', room: '작품 만들기 체험장',
       story: '다윤이와 승현이가 색종이를 반으로 접어 오려서 선대칭도형 작품을 만들었어요. 대응변과 대응각에는 어떤 성질이 있을까요?',
       acts: [
-        { id: 'l5a', title: '대응변의 길이와 대응각의 크기 알아보기', type: 'app' },
+        { id: 'l5a', title: '접어 보며 대응변과 대응각 비교하기', type: 'app' },
         { id: 'l5b', title: '대응점끼리 이은 선분과 대칭축의 관계', type: 'app' },
         { id: 'l5c', title: '선대칭도형의 성질로 길이와 각 구하기', type: 'app' },
         { id: 'l5d', title: '선대칭도형을 완성하는 방법 알아보기', type: 'app' },

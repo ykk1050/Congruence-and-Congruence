@@ -720,3 +720,11 @@ b { font-weight: 700; }
 .env-line { fill: none; stroke: #c9a26b; stroke-width: 1.2px; vector-effect: non-scaling-stroke; }
 /* 색종이 작품은 무대 색(--art)보다 색종이 색을 쓴다: 게시판과 봉투 속 작품 색이 같게 */
 .shape.paper-1, .shape.fill-a.paper-1 { fill: #ff8787; } .shape.paper-2, .shape.fill-a.paper-2 { fill: #74c0fc; } .shape.paper-3, .shape.fill-a.paper-3 { fill: #8ce99a; } .shape.paper-4, .shape.fill-a.paper-4 { fill: #ffd43b; } .shape.paper-5, .shape.fill-a.paper-5 { fill: #b197fc; }
+
+/* 접어서 대응변·대응각 비교하기 */
+.cmp-side { stroke-width: 7px; vector-effect: non-scaling-stroke; stroke-linecap: round; opacity: .9; }
+.cmp-side.cmp-left { stroke: #f08c00; }
+.cmp-side.cmp-right { stroke: #1c7ed6; }
+.cmp-wedge { opacity: .6; stroke: none; }
+.cmp-wedge.cmp-left { fill: #f08c00; }
+.cmp-wedge.cmp-right { fill: #1c7ed6; }
