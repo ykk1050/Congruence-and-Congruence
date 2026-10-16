@@ -5,7 +5,7 @@
   'use strict';
   const { el, clear, Store, Sound, toast } = C;
   const { btn } = UI;
-  const { LESSONS, ACT, findAct } = Lessons;
+  const { LESSONS, ACT, KEY, findAct } = Lessons;
 
   const view = document.getElementById('view');
   const crumb = document.getElementById('crumb');
@@ -17,10 +17,27 @@
   const stars = (id) => { const r = Store.get('game:' + id, null); return r ? '⭐'.repeat(r.stars) + '☆'.repeat(3 - r.stars) : '☆☆☆'; };
   const doneAct = (id) => !!Store.get('act:' + id, false);
   const appActs = (L) => L.acts.filter(a => a.type === 'app');
-  /** 배우기 활동을 모두 마쳐야 익히기 게임이 열린다 (주소 #/open 으로 모두 열기 가능) */
+  /** 배우기 활동을 모두 마쳐야 익히기 게임과 주요 개념 확인하기가 열린다 (주소 #/open 으로 모두 열기 가능) */
   const teacherOpen = () => !!Store.get('unlockAll', false);
   const gameOpen = (L) => teacherOpen() || appActs(L).every(a => doneAct(a.id));
   const leftActs = (L) => appActs(L).filter(a => !doneAct(a.id));
+
+  /** 차시의 주요 개념 문장: 활동 순서대로, <br>로 나뉜 문장은 한 줄씩 */
+  function keyLines(L) {
+    const lines = [];
+    L.acts.forEach(a => (KEY[a.id] || []).forEach(parts => {
+      let line = [];
+      lines.push(line);
+      parts.forEach(pt => {
+        if (typeof pt !== 'string') { line.push(pt); return; }
+        pt.split('<br>').forEach((t, i) => { if (i) lines.push(line = []); if (t) line.push(t); });
+      });
+    }));
+    return lines.filter(l => l.length);
+  }
+  /** 빈칸을 정답으로 채운 완성 문장 (정답 낱말 강조) */
+  const keySentence = (line) => el('li', { class: 'key-line' }, line.map(pt =>
+    typeof pt === 'string' ? el('span', { html: pt }) : el('b', { class: 'key-ans' }, pt.ans)));
 
   function setCrumb(parts) {
     clear(crumb);
@@ -84,6 +101,27 @@
     learn.appendChild(list);
     view.appendChild(learn);
 
+    const lines = keyLines(L);
+    if (lines.length) {
+      if (gameOpen(L)) {
+        const list = el('ol', { class: 'key-list' }, lines.map(keySentence));
+        list.hidden = true;
+        const toggle = el('button', { class: 'key-toggle', type: 'button', 'aria-expanded': 'false' },
+          el('span', { class: 'kt-title' }, '주요 개념 확인하기'),
+          el('span', { class: 'kt-go' }, '펼쳐 보기 ▼'));
+        toggle.addEventListener('click', () => {
+          list.hidden = !list.hidden;
+          toggle.setAttribute('aria-expanded', String(!list.hidden));
+          toggle.querySelector('.kt-go').textContent = list.hidden ? '펼쳐 보기 ▼' : '접기 ▲';
+        });
+        view.appendChild(el('section', { class: 'panel key-card' }, el('h2', {}, '📝 주요 개념'), toggle, list));
+      } else {
+        view.appendChild(el('section', { class: 'panel key-card locked' },
+          el('div', { class: 'lock-row' }, el('span', { class: 'lock-ico', 'aria-hidden': 'true' }, '🔒'),
+            el('div', {}, el('b', {}, '주요 개념 확인하기'), el('div', { class: 'muted' }, `배우기 활동을 모두 마치면 열려요. (남은 활동 ${leftActs(L).length}개)`)))));
+      }
+    }
+
     if (L.game) {
       const G = Games[L.game];
       if (gameOpen(L)) {
@@ -134,7 +172,7 @@
         root.appendChild(el('div', { class: 'finish' },
           el('div', { class: 'big-stars' }, '🎉'),
           el('h2', {}, '활동을 마쳤어요!'),
-          allDone && L.game ? el('p', { class: 'unlock-msg' }, '🔓 배우기 활동을 모두 마쳐서 익히기 게임이 열렸어요!') : null,
+          allDone && L.game ? el('p', { class: 'unlock-msg' }, '🔓 배우기 활동을 모두 마쳐서 주요 개념 확인하기와 익히기 게임이 열렸어요!') : null,
           el('div', { class: 'controls center' },
             next ? el('a', { class: 'btn primary big', href: '#/act/' + next.id }, `다음 활동: ${next.title} ▶`) : null,
             allDone && L.game ? el('a', { class: 'btn primary big', href: '#/game/' + L.game }, '🎮 익히기 게임 하러 가기') : null,
