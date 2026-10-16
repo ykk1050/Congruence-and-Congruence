@@ -162,17 +162,18 @@
     if (nav) {
       const finishOnce = () => {
         if (!nav.textContent.includes('마치기') || nav.disabled) return;
+        const wasOpen = gameOpen(L);
         Store.set('act:' + id, true);
         Sound.win();
         clear(root);
-        // 다음에 할 일: 아직 안 한 다음 활동 → (모두 마쳤으면) 익히기 게임
+        // 다음에 할 일: 바로 다음 활동(마지막 활동이면 아직 안 한 활동) + (모두 마쳤으면) 익히기 게임
         const left = leftActs(L);
-        const next = (nextAct && !doneAct(nextAct.id)) ? nextAct : left[0];
+        const next = nextAct || left[0];
         const allDone = left.length === 0;
         root.appendChild(el('div', { class: 'finish' },
           el('div', { class: 'big-stars' }, '🎉'),
           el('h2', {}, '활동을 마쳤어요!'),
-          allDone && L.game ? el('p', { class: 'unlock-msg' }, '🔓 배우기 활동을 모두 마쳐서 주요 개념 확인하기와 익히기 게임이 열렸어요!') : null,
+          allDone && !wasOpen && L.game ? el('p', { class: 'unlock-msg' }, '🔓 배우기 활동을 모두 마쳐서 주요 개념 확인하기와 익히기 게임이 열렸어요!') : null,
           el('div', { class: 'controls center' },
             next ? el('a', { class: 'btn primary big', href: '#/act/' + next.id }, `다음 활동: ${next.title} ▶`) : null,
             allDone && L.game ? el('a', { class: 'btn primary big', href: '#/game/' + L.game }, '🎮 익히기 게임 하러 가기') : null,
