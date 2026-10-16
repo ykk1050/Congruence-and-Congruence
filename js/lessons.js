@@ -647,9 +647,9 @@
     const view = { x0: 0, y0: 0, w: 17.4, h: 6.6 };
     UI.runSteps(root, [
       (c) => {
-        c.say('삼각형 ㄱㄴㄷ 조각을 퍼즐의 빈 곳(삼각형 ㅁㅂㄹ)에 끼우면 퍼즐이 완성돼요. 조각을 <b>끌어서</b> 옮기고, 맞지 않으면 <b>돌리기</b>를 눌러 보세요. 그리고 대응점·대응변·대응각을 입력해 친구에게 설명해 보세요.', 'dayun');
+        c.box.appendChild(el('div', { class: 'q', html: '삼각형 ㄱㄴㄷ과 삼각형 ㅁㅂㄹ은 서로 합동입니다. 다음 문제를 해결해 보세요.' }));
         Correspond(c.area(), {
-          view, figs, map, drag: { moving: 0, onto: 1 },
+          view, figs, map,
           prompts: [[0], [1], [2]].map(g => ({ type: 'point', given: g }))
             .concat([[0, 1], [1, 2], [2, 0]].map(g => ({ type: 'side', given: g })))
             .concat([[2, 0, 1], [0, 1, 2], [1, 2, 0]].map(g => ({ type: 'angle', given: g }))),
