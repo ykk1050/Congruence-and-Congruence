@@ -157,23 +157,29 @@
     const idx = apps.findIndex(x => x.id === id);
     const nextAct = apps[idx + 1];
     ACT[id](root);
-    // 마지막 단계에서 ‘활동 마치기’를 누르면
+    // 마지막 단계에서 ‘다음’을 누르면 활동을 마치고 바로 다음 활동으로 넘어간다
     const nav = root.querySelector('.step-nav .primary');
     if (nav) {
       const finishOnce = () => {
-        if (!nav.textContent.includes('마치기') || nav.disabled) return;
+        if (nav.dataset.last !== '1' || nav.disabled) return;
         const wasOpen = gameOpen(L);
         Store.set('act:' + id, true);
         Sound.win();
-        clear(root);
-        // 다음에 할 일: 바로 다음 활동(마지막 활동이면 아직 안 한 활동) + (모두 마쳤으면) 익히기 게임
         const left = leftActs(L);
-        const next = nextAct || left[0];
         const allDone = left.length === 0;
+        const unlocked = allDone && !wasOpen && L.game;
+        if (nextAct) {
+          toast(unlocked ? '🔓 배우기 활동을 모두 마쳐서 주요 개념 확인하기와 익히기 게임이 열렸어요!' : '활동을 마쳤어요! 다음 활동으로 넘어가요.', 'good', unlocked ? 3200 : 1800);
+          location.hash = '#/act/' + nextAct.id;
+          return;
+        }
+        // 차시의 마지막 활동: 아직 안 한 활동 + (모두 마쳤으면) 익히기 게임
+        clear(root);
+        const next = left[0];
         root.appendChild(el('div', { class: 'finish' },
           el('div', { class: 'big-stars' }, '🎉'),
           el('h2', {}, '활동을 마쳤어요!'),
-          allDone && !wasOpen && L.game ? el('p', { class: 'unlock-msg' }, '🔓 배우기 활동을 모두 마쳐서 주요 개념 확인하기와 익히기 게임이 열렸어요!') : null,
+          unlocked ? el('p', { class: 'unlock-msg' }, '🔓 배우기 활동을 모두 마쳐서 주요 개념 확인하기와 익히기 게임이 열렸어요!') : null,
           el('div', { class: 'controls center' },
             next ? el('a', { class: 'btn primary big', href: '#/act/' + next.id }, `다음 활동: ${next.title} ▶`) : null,
             allDone && L.game ? el('a', { class: 'btn primary big', href: '#/game/' + L.game }, '🎮 익히기 게임 하러 가기') : null,

@@ -77,7 +77,9 @@
       prev.style.visibility = i === 0 ? 'hidden' : 'visible';
       next.disabled = !doneSet.has(i);
       next.classList.toggle('glow', doneSet.has(i));
-      next.textContent = i === steps.length - 1 ? (opt.finishLabel || '활동 마치기 ✔') : '다음 ▶';
+      // 마지막 단계도 ‘다음’: 누르면 활동을 마치고 다음 활동으로 넘어간다 (app.js)
+      next.textContent = i === steps.length - 1 && opt.finishLabel ? opt.finishLabel : '다음 ▶';
+      next.dataset.last = i === steps.length - 1 ? '1' : '';
       const ctx = {
         box,
         say: (text, who) => { const b = bubble(text, who); box.appendChild(b); return b; },
