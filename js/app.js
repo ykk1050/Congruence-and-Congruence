@@ -43,6 +43,14 @@
   const keySentence = (line) => el('li', { class: 'key-line' }, line.map(pt =>
     typeof pt === 'string' ? el('span', { html: pt }) : el('b', { class: 'key-ans' }, pt.ans)));
 
+  /** 위쪽 경로의 차시 이름: crumb가 있으면 그 문구 (맨 앞 ♣는 연두색 네잎클로버 그림) */
+  const LEAF = 'M12 12C8 9.6 6.4 5.6 8.6 3.9c1.4-1.1 3 .1 3.4 1.5.4-1.4 2-2.6 3.4-1.5 2.2 1.7.6 5.7-3.4 8.1z';
+  const clover = () => el('span', { class: 'crumb-clover', 'aria-hidden': 'true', html:
+    '<svg viewBox="0 0 24 24"><path class="cl-stem" d="M12 12.5c.6 3.2 2 6.4 4.6 9"/>' +
+    [0, 90, 180, 270].map(r => `<path class="cl-leaf" transform="rotate(${r} 12 12)" d="${LEAF}"/>`).join('') +
+    '<circle class="cl-mid" cx="12" cy="12" r="1.3"/></svg>' });
+  const crumbTitle = (L) => !L.crumb ? L.title : L.crumb.startsWith('♣') ? [clover(), L.crumb.slice(1).trim()] : L.crumb;
+
   function setCrumb(parts) {
     clear(crumb);
     parts.forEach((p, i) => {
@@ -85,7 +93,7 @@
   function lesson(id) {
     const L = LESSONS.find(x => x.id === id);
     if (!L) return home();
-    setCrumb([{ t: '미술관 지도', href: '#/' }, { t: L.title }]);
+    setCrumb([{ t: '미술관 지도', href: '#/' }, { t: crumbTitle(L) }]);
     clear(view);
     const sc = Scenes.scene(L.id);
     if (sc) view.appendChild(el('div', { class: 'scene-wrap' }, sc));
@@ -167,7 +175,7 @@
     if (!found || !ACT[id]) return home();
     const { lesson: L, act: a } = found;
     if (a.type === 'after' && !afterOpen(L)) { location.hash = '#/lesson/' + L.id; return; }
-    setCrumb([{ t: '미술관 지도', href: '#/' }, { t: L.title, href: '#/lesson/' + L.id }]);
+    setCrumb([{ t: '미술관 지도', href: '#/' }, { t: crumbTitle(L), href: '#/lesson/' + L.id }]);
     clear(view);
     const part = L.parts && a.part ? L.parts[a.part - 1] : null;
     if (a.type === 'after') {
@@ -223,7 +231,7 @@
     const G = Games[id];
     if (!G) return home();
     const L = LESSONS.find(x => x.game === id);
-    setCrumb([{ t: '미술관 지도', href: '#/' }, L ? { t: L.title, href: '#/lesson/' + L.id } : null, { t: '🎮 ' + G.title }].filter(Boolean));
+    setCrumb([{ t: '미술관 지도', href: '#/' }, L ? { t: crumbTitle(L), href: '#/lesson/' + L.id } : null, { t: '🎮 ' + G.title }].filter(Boolean));
     clear(view);
     if (L && !gameOpen(L)) {
       const left = leftActs(L);
