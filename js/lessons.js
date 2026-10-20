@@ -902,7 +902,8 @@
 
   const l5Cfg = { mode: 'line', w: 12, h: 8, axis: [[6, 0], [6, 8]], axisLabels: ['ㅅ', 'ㅇ'], pts: [[6, 2], [2, 1], [3, 7], [6, 6], [9, 7], [10, 1]], labels: ['ㄱ', 'ㄴ', 'ㄷ', 'ㄹ', 'ㅁ', 'ㅂ'], pairs: [[1, 5], [2, 4]], drag: [1, 2], footLabels: ['ㅈ', 'ㅊ'] };
   ACT.l5b = function (root) {
-    const cfg = l5Cfg;
+    // 살펴보기 단계: 도형을 바꾸지 않고 주어진 도형만 본다 (점 끌기는 ‘추측이 맞는지 확인하기’에서)
+    const cfg = Object.assign({}, l5Cfg, { drag: [] });
     UI.runSteps(root, [
       (c) => {
         c.say('대응점끼리 이은 선분 ㄴㅂ, ㄷㅁ과 대칭축 ㅅㅇ 사이에는 어떤 관계가 있을까요? 모눈의 칸 수와 각도를 살펴보세요.', 'guide');
