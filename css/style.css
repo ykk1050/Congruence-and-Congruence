@@ -752,3 +752,8 @@ b { font-weight: 700; }
 .key-list { margin: 12px 0 0; padding: 14px 20px 14px 46px; background: #fff; border: 3px solid #ffc933; border-radius: 22px; font-size: 1.15rem; line-height: 2; }
 .key-line + .key-line { margin-top: 6px; }
 .key-ans { display: inline-block; margin: 0 3px; padding: 0 8px; line-height: 1.6; color: #e03131; background: #f2f5ff; border-bottom: 3px solid var(--navy); border-radius: 8px 8px 0 0; }
+
+/* 활동 화면: 수업안의 활동 묶음 머리글 (예: 활동1 선대칭도형을 살펴보고 공통된 규칙 추측하기) */
+.part-head { display: flex; align-items: center; flex-wrap: wrap; gap: 10px 12px; margin: 4px 0 12px; }
+.part-head h1 { margin: 0; }
+.part-no { flex: none; font-family: var(--font-title); font-size: 1.05rem; background: var(--navy); color: #fff; padding: 4px 14px; border-radius: 999px; }

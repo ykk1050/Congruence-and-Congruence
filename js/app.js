@@ -148,9 +148,15 @@
     const { lesson: L, act: a } = found;
     setCrumb([{ t: '미술관 지도', href: '#/' }, { t: L.title, href: '#/lesson/' + L.id }]);
     clear(view);
-    const sc = Scenes.scene(L.id);
-    if (sc) view.appendChild(el('div', { class: 'scene-wrap' }, sc, el('div', { class: 'scene-cap' }, L.story)));
-    view.appendChild(el('div', { class: 'act-head' }, el('h1', {}, a.title)));
+    const part = L.parts && a.part ? L.parts[a.part - 1] : null;
+    if (part) {
+      // 수업안의 활동 묶음이 있는 차시: 장면 그림·활동 제목 대신 ‘활동N’ 머리글
+      view.appendChild(el('div', { class: 'part-head' }, el('span', { class: 'part-no' }, '활동' + a.part), el('h1', {}, part)));
+    } else {
+      const sc = Scenes.scene(L.id);
+      if (sc) view.appendChild(el('div', { class: 'scene-wrap' }, sc, el('div', { class: 'scene-cap' }, L.story)));
+      view.appendChild(el('div', { class: 'act-head' }, el('h1', {}, a.title)));
+    }
     const root = el('section', { class: 'activity' });
     view.appendChild(root);
     const apps = appActs(L);
