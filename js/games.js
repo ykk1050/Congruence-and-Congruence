@@ -93,6 +93,8 @@
           el('p', { class: 'end-score' }, `점수 ${score} / ${max}  ·  한 번에 맞힌 문제 ${firstTry}개`),
           cfg.endNote ? el('p', { class: 'muted', html: cfg.endNote }) : null,
           el('div', { class: 'controls center' }, btn('🔄 새 문제로 다시 하기', start, 'primary big'), btn('처음 화면', intro, 'ghost'))));
+        // 화면 쪽(app.js)에서 다음에 할 일(도전 문제 등)을 덧붙일 수 있게 알린다
+        root.dispatchEvent(new CustomEvent('gameend', { detail: { controls: wrap.querySelector('.game-end .controls') } }));
       }
       round();
     }

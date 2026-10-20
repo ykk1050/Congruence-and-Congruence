@@ -21,6 +21,10 @@
   const teacherOpen = () => !!Store.get('unlockAll', false);
   const gameOpen = (L) => teacherOpen() || appActs(L).every(a => doneAct(a.id));
   const leftActs = (L) => appActs(L).filter(a => !doneAct(a.id));
+  /** 도전 문제: 배우기 순서에서 빠지고, 익히기 게임을 한 판 마치면 열린다 */
+  const afterActs = (L) => L.acts.filter(a => a.type === 'after');
+  const afterOpen = (L) => teacherOpen() || !!(L.game && Store.get('game:' + L.game, null));
+  const afterLink = (a) => el('a', { class: 'btn primary big', href: '#/act/' + a.id }, `✏️ 도전 문제: ${a.title} ▶`);
 
   /** 차시의 주요 개념 문장: 활동 순서대로, <br>로 나뉜 문장은 한 줄씩 */
   function keyLines(L) {
@@ -93,7 +97,7 @@
 
     const learn = el('section', { class: 'panel' }, el('h2', {}, '📘 배우기'));
     const list = el('ol', { class: 'act-list' });
-    L.acts.forEach(a => {
+    appActs(L).forEach(a => {
       list.appendChild(el('li', {}, el('a', { class: 'act app' + (doneAct(a.id) ? ' done' : ''), href: '#/act/' + a.id },
         el('span', { class: 'act-title' }, a.title),
         el('span', { class: 'act-go' }, doneAct(a.id) ? '✓ 완료' : '시작 ▶'))));
@@ -139,6 +143,22 @@
             el('div', {}, el('b', {}, '익히기 게임'), el('div', { class: 'muted' }, `배우기 활동을 모두 마치면 열려요. (남은 활동 ${n}개)`)))));
       }
     }
+
+    const after = afterActs(L);
+    if (after.length) {
+      if (afterOpen(L)) {
+        view.appendChild(el('section', { class: 'panel' },
+          el('h2', {}, '✏️ 도전 문제'),
+          el('p', { class: 'muted' }, '익히기 게임에서 연습한 성질로 문제를 풀어 봐요.'),
+          el('ol', { class: 'act-list' }, after.map(a => el('li', {}, el('a', { class: 'act app' + (doneAct(a.id) ? ' done' : ''), href: '#/act/' + a.id },
+            el('span', { class: 'act-title' }, a.title),
+            el('span', { class: 'act-go' }, doneAct(a.id) ? '✓ 완료' : '시작 ▶')))))));
+      } else {
+        view.appendChild(el('section', { class: 'panel game-card locked' },
+          el('div', { class: 'lock-row' }, el('span', { class: 'lock-ico', 'aria-hidden': 'true' }, '🔒'),
+            el('div', {}, el('b', {}, '✏️ 도전 문제'), el('div', { class: 'muted' }, '익히기 게임을 한 판 마치면 열려요.')))));
+      }
+    }
   }
 
   /* ---------- 활동 화면 ---------- */
@@ -146,10 +166,13 @@
     const found = findAct(id);
     if (!found || !ACT[id]) return home();
     const { lesson: L, act: a } = found;
+    if (a.type === 'after' && !afterOpen(L)) { location.hash = '#/lesson/' + L.id; return; }
     setCrumb([{ t: '미술관 지도', href: '#/' }, { t: L.title, href: '#/lesson/' + L.id }]);
     clear(view);
     const part = L.parts && a.part ? L.parts[a.part - 1] : null;
-    if (part) {
+    if (a.type === 'after') {
+      view.appendChild(el('div', { class: 'part-head' }, el('span', { class: 'part-no' }, '도전 문제'), el('h1', {}, a.title)));
+    } else if (part) {
       // 수업안의 활동 묶음이 있는 차시: 장면 그림·활동 제목 대신 ‘활동N’ 머리글
       view.appendChild(el('div', { class: 'part-head' }, el('span', { class: 'part-no' }, '활동' + a.part), el('h1', {}, part)));
     } else {
@@ -161,7 +184,7 @@
     view.appendChild(root);
     const apps = appActs(L);
     const idx = apps.findIndex(x => x.id === id);
-    const nextAct = apps[idx + 1];
+    const nextAct = idx >= 0 ? apps[idx + 1] : null;   // 도전 문제는 배우기 순서에 없다
     ACT[id](root);
     // 마지막 단계에서 ‘다음’을 누르면 활동을 마치고 바로 다음 활동으로 넘어간다
     const nav = root.querySelector('.step-nav .primary');
@@ -213,6 +236,8 @@
     }
     const root = el('section', { class: 'game-root' });
     view.appendChild(root);
+    // 한 판을 마치면 도전 문제로 이어지는 버튼
+    if (L) root.addEventListener('gameend', (e) => { const ctl = e.detail.controls; if (ctl) afterActs(L).forEach(a => ctl.appendChild(afterLink(a))); });
     G.run(root);
   }
 
