@@ -217,7 +217,8 @@
     return st.poly([tip, V.add(a, V.mul(n, W)), V.sub(a, V.mul(n, W))], { class: 'term-arrowhead' }, layer || 'help');
   }
 
-  /** 대응점끼리 이은 선분과 대칭축/대칭의 중심 관계를 끌어 보며 탐구 */
+  /** 대응점끼리 이은 선분과 대칭축/대칭의 중심 관계를 끌어 보며 탐구
+      hideMeasure: 칸 수·직각 표시와 길이·각도 안내를 숨긴다 (선생님과 함께 세어 보는 장면) */
   function SymExplore(box, cfg) {
     const line = cfg.mode === 'line';
     const W = cfg.w, H = cfg.h;
@@ -246,9 +247,10 @@
         stage.line(P[i], P[j], { class: 'pair-link', style: `stroke:${color}` }, 'help');
         if (line) {
           const f = V.foot(P[i], A, B);
-          stage.rightMark(f, V.sub(P[i], f), V.sub(B, A), 0.32, {}, 'help');
+          if (!cfg.hideMeasure) stage.rightMark(f, V.sub(P[i], f), V.sub(B, A), 0.32, {}, 'help');
           stage.circle(f, 0.09, { class: 'vdot' }, 'ui');
           if (cfg.footLabels) stage.text(V.add(f, [-0.4, 0.42]), cfg.footLabels[k], { class: 'vlabel small' });
+          if (cfg.hideMeasure) return;
           const d1 = V.dist(P[i], f), d2 = V.dist(P[j], f);
           stage.text(V.add(V.mid(P[i], f), [0, -0.38]), fmt(d1, 1) + '칸', { class: 'measure small', style: `fill:${color}` }, 'top');
           stage.text(V.add(V.mid(P[j], f), [0, -0.38]), fmt(d2, 1) + '칸', { class: 'measure small', style: `fill:${color}` }, 'top');
@@ -264,6 +266,7 @@
       });
       cfg.drag.forEach(i => stage.circle(P[i], 0.3, { class: 'handle' }, 'top'));
       info.innerHTML = rows.join('<br>');
+      info.hidden = !rows.length;
     }
     stage.on({
       dragStart: (p) => { active = Hit.nearestVertex(P, p, Math.max(0.6, 36 * stage.unitPerPx())); if (!cfg.drag.includes(active)) active = -1; return active >= 0; },
@@ -902,15 +905,15 @@
 
   const l5Cfg = { mode: 'line', w: 12, h: 8, axis: [[6, 0], [6, 8]], axisLabels: ['ㅅ', 'ㅇ'], pts: [[6, 2], [2, 1], [3, 7], [6, 6], [9, 7], [10, 1]], labels: ['ㄱ', 'ㄴ', 'ㄷ', 'ㄹ', 'ㅁ', 'ㅂ'], pairs: [[1, 5], [2, 4]], drag: [1, 2], footLabels: ['ㅈ', 'ㅊ'] };
   ACT.l5b = function (root) {
-    // 살펴보기 단계: 도형을 바꾸지 않고 주어진 도형만 본다 (점 끌기는 ‘추측이 맞는지 확인하기’에서)
-    const cfg = Object.assign({}, l5Cfg, { drag: [] });
+    // 살펴보기 단계: 도형을 바꾸지 않고, 칸 수·직각 표시 없이 선생님과 함께 세어 본다 (점 끌기는 ‘추측이 맞는지 확인하기’에서)
+    const cfg = Object.assign({}, l5Cfg, { drag: [], hideMeasure: true });
     UI.runSteps(root, [
       (c) => {
         c.say('대응점끼리 이은 선분 ㄴㅂ, ㄷㅁ과 대칭축 ㅅㅇ 사이에는 어떤 관계가 있을까요? 모눈의 칸 수와 각도를 살펴보세요.', 'guide');
         SymExplore(c.area(), cfg);
         let a = false, b = false;
         choice(c.box, { q: '선분 ㄴㅈ과 선분 ㅂㅈ의 길이를 비교하면?', options: [{ t: '길이가 같아요.', ok: true }, { t: '선분 ㄴㅈ이 더 길어요.', why: '선분 ㄴㅈ과 선분 ㅂㅈ이 각각 모눈 몇 칸인지 세어 다시 비교해 보세요. 정말 ㄴㅈ이 더 긴가요?' }, { t: '선분 ㅂㅈ이 더 길어요.', why: '선분 ㄴㅈ과 선분 ㅂㅈ이 각각 모눈 몇 칸인지 세어 다시 비교해 보세요. 정말 ㅂㅈ이 더 긴가요?' }], onDone: () => { a = true; if (a && b) c.done(); } });
-        choice(c.box, { q: '대응점끼리 이은 선분 ㄴㅂ이 대칭축과 만나서 이루는 각은?', options: [{ t: '45°', why: '45°는 직각의 절반이에요. 선분 ㄴㅂ과 대칭축이 만나는 곳에 있는 ㄴ자 모양 표시를 살펴보세요.' }, { t: '90°', ok: true }, { t: '180°', why: '180°는 두 선이 일직선일 때예요. 선분 ㄴㅂ과 대칭축은 서로 만나서 꺾여 있어요.' }], onDone: () => { b = true; if (a && b) c.done(); } });
+        choice(c.box, { q: '대응점끼리 이은 선분 ㄴㅂ이 대칭축과 만나서 이루는 각은?', options: [{ t: '45°', why: '45°는 직각의 절반이에요. 선분 ㄴㅂ과 대칭축이 만나는 곳을 모눈의 가로선, 세로선과 비교해 보세요.' }, { t: '90°', ok: true }, { t: '180°', why: '180°는 두 선이 일직선일 때예요. 선분 ㄴㅂ과 대칭축은 서로 만나서 꺾여 있어요.' }], onDone: () => { b = true; if (a && b) c.done(); } });
       },
     ]);
   };
@@ -969,7 +972,7 @@
       (c) => {
         c.say('내가 세운 추측이 정말 <b>언제나</b> 맞을까요? <b>점 ㄴ이나 점 ㄷ을 손가락으로 끌어</b> 도형을 여러 번 바꾸어 보세요. 대응점도 함께 움직여요. 추측이 틀리는 도형을 찾을 수 있는지 도전해 봐요!', 'seung');
         guessCard(c.box, [1, 2]);
-        SymExplore(c.area(), Object.assign({}, l5Cfg, { onMove: (m) => { if (m === 2) { toast('여러 번 바꾸어 보았어요. 내 추측과 비교해 보세요.', 'good'); c.done(); } } }));
+        SymExplore(c.area(), Object.assign({}, l5Cfg, { hideMeasure: true, onMove: (m) => { if (m === 2) { toast('여러 번 바꾸어 보았어요. 내 추측과 비교해 보세요.', 'good'); c.done(); } } }));
       },
       (c) => {
         // 학생마다 추측이 다르므로 정답·오답이 없다. 고른 답에 맞는 안내만 한다.
@@ -978,7 +981,7 @@
         const fb = el('div', { class: 'fb' });
         const answers = [
           { t: '찾지 못했어요. 내 추측대로였어요.', msg: '모양을 여러 번 바꾸어도 추측대로였군요. 다음 활동에서 성질을 정리하며 내 추측과 다시 비교해 봐요.' },
-          { t: '찾았어요. 내 추측과 다른 도형이 있었어요.', msg: '추측과 다른 점을 찾았군요! 어느 부분이 달랐는지 화면의 직각 표시와 양쪽 칸 수를 다시 살펴보세요. 다음 활동에서 성질을 정리하며 내 추측을 고쳐 봐요.' },
+          { t: '찾았어요. 내 추측과 다른 도형이 있었어요.', msg: '추측과 다른 점을 찾았군요! 어느 부분이 달랐는지 대칭축과 만나는 각과 양쪽 칸 수를 모눈에서 다시 세어 보세요. 다음 활동에서 성질을 정리하며 내 추측을 고쳐 봐요.' },
         ];
         answers.forEach((o, i) => {
           const b = el('button', { class: 'opt', type: 'button' }, o.t);
